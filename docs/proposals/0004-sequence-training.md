@@ -48,9 +48,22 @@ closed-loop tests.
 - Loss: cross-entropy per step on the expert action (optionally soft labels
   from expert costs), with class weights.
 - Auxiliary distance heads, see [Distance estimation](#distance-estimation).
-- **Don't feed previous actions as input**, at least at first. Behaviour
-  cloning models with access to past actions tend to learn "repeat the last
-  action" (copycat problem) and fail when driving.
+- **Copycat problem** ([Wen et al. 2020](../knowledge/literature.md#wen-et-al-2020-fighting-copycat-agents-in-behavioral-cloning-from-observation-histories-neurips)).
+  A model that sees past frames can infer the previous action from them and
+  just repeat it. That gives low training loss but bad driving. It happens
+  **even without a previous-action input**, so frame stacks and GRUs are
+  both at risk. Many prior works found history length 1 worked best for
+  this reason. Countermeasures:
+  - don't feed previous actions as input
+  - the perturbations from [0002](0002-dataset-generation.md#perturbations-against-covariate-shift)
+    break the link between past motion (from executed actions) and the label
+    (expert action). Keep ε high enough
+  - history dropout, as in ChauffeurNet's past-motion dropout: for some
+    training windows, blank or repeat the earlier frames, so the model can't
+    rely on them alone
+  - diagnostic: train a small model to predict the policy's next action from
+    its last k actions. If that works much better on the clone's runs than on
+    the expert's, the clone is copying
 
 ### Distance estimation
 
@@ -66,6 +79,15 @@ action head:
 
 - Loss: action cross-entropy + λ · (smooth L1 on distances), λ ≈ 0.1–1.
   Predict log-distance or clip, so far obstacles don't dominate.
+  DroNet found that a fixed weight between a regression and a classification
+  loss converged badly, and ramped the second loss in over epochs. Start with
+  a ramp on λ if the joint loss is unstable.
+- Optional **collision-risk head** (DroNet): probability that the robot will
+  collide within the next N steps if it keeps going forward. Labels from
+  geometry. Useful to slow down or stop in a later control vector ([0005](0005-control-vector.md)).
+- Same idea in the literature: Codevilla et al. added a speed-prediction head
+  so the encoder had to extract motion from the image. It fixed their
+  "inertia" failure.
 - Labels are exact, from the scene geometry. LIDAR ([0003](0003-lidar-verification.md))
   gives an independent check of the same quantities.
 - Why it helps: the action head gets features that must encode distance, and
@@ -91,6 +113,9 @@ action head:
   [0002](0002-dataset-generation.md#road-appearance-for-generalization).
 - Ablations: sequence length T, frame stack size k, GRU vs stack, with and
   without the distance heads.
+- **Several training seeds per model** (e.g. 3), reporting mean ± std.
+  Codevilla et al. saw large closed-loop differences between seeds with the
+  same data.
 - Compare with a lidar-only policy. The 360° lidar keeps seeing the obstacle
   beside the robot, so it should need less memory than the camera.
 

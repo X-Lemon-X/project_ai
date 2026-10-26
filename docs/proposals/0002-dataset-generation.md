@@ -72,6 +72,13 @@ drifting toward an obstacle, and doesn't know how to recover. So:
 - **always label with the expert action**, never with the executed one
 - store both `executed_action` and `expert_action`, plus a `perturbed` flag
 
+This is DART (Laskey et al. 2017, see [literature](../knowledge/literature.md#laskey-et-al-2017-dart-noise-injection-for-robust-imitation-learning-corl)).
+DART tunes ε to match the trained policy's error rate, so after the first
+model, set ε ≈ the fraction of steps where it disagrees with the expert.
+ChauffeurNet down-weights perturbed examples (weight 1/10) so the model does
+not learn to drive in a perturbed way. Try a lower loss weight for steps
+where `perturbed` is true, or for the steps right after them.
+
 Later (closed-loop phase): **DAgger**. Run the trained network in the
 simulator, record the states it visits, label them with the expert, add to
 the dataset, retrain. The cost-to-go map makes the labelling free.
@@ -81,6 +88,17 @@ the dataset, retrain. The cost-to-go map makes the labelling free.
 Per episode: obstacle count, type, size, colour, yaw, position; start y.
 Later (level 4): lighting intensity/direction, camera noise, distractor
 objects off the road.
+
+Lessons from the literature ([literature](../knowledge/literature.md#training-in-simulation-and-transfer)):
+- Visual variety matters more than realism (CAD²RL). Tobin et al. saw a
+  large drop with fewer than ~1,000 unique texturizations. So randomize
+  colours and simple procedural textures (solid, gradient, checker) of the road,
+  shoulder, obstacles and sky per episode, in addition to the discrete road styles below.
+- Distractor objects during training were critical for robustness (Tobin).
+  Add random objects **off** the drivable corridor (they must not change the
+  labels).
+- Small camera jitter (height, pitch ± a few degrees) helps slightly.
+  Image noise has little effect.
 
 Obstacle size is randomized on purpose. If all obstacles had one size, the
 network could read distance from apparent size alone. With random sizes it
@@ -171,6 +189,10 @@ Split by **episode** (seed range), never by frame. Neighbouring frames are
 almost identical, and a frame-level split leaks them into validation.
 - train / val / test: disjoint seed ranges
 - extra OOD test set: unseen obstacle shapes or colours, more obstacles
+
+Diversity beats volume: Codevilla et al. got better driving from 10 h of data
+than from 100 h when the extra data was not more diverse. Grow the dataset by
+adding variety (styles, layouts) before adding more of the same.
 
 ### Things to monitor
 

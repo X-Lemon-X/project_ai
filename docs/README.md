@@ -19,6 +19,7 @@ Knowledge
 - [Simulator (Isaac Sim)](knowledge/simulator.md)
 - [Robot and sensors](knowledge/robot-and-sensors.md)
 - [Scene generator](knowledge/scene-generator.md)
+- [Literature](knowledge/literature.md): related papers and what they mean for us
 
 Proposals
 - [0001 Point-mass control model](proposals/0001-point-mass-control.md)

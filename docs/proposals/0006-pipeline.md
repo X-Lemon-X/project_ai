@@ -74,8 +74,10 @@ Two Python environments:
 - **Shardable.** `--start/--count` lets several runs (or several nights)
   cover disjoint episode ranges. Running several Isaac Sim processes on one GPU
   is limited by VRAM; measure first.
-- **Fast.** No `time.sleep`. Render only as many `update()` calls as needed
-  for a clean frame (measure 1 vs 3). Lidar can be skipped or switched to
+- **Fast.** No `time.sleep`. Render only as many subframes as needed for a
+  clean frame (`rt_subframes`, see [simulator.md](../knowledge/simulator.md#camera-capture-replicator-from-the-601-docs)).
+  The RTX lidar needs the timeline playing and stepping with `app.update()`,
+  so test camera + lidar capture together early. Lidar can be skipped or switched to
   the analytic scan for bulk data ([0003](0003-lidar-verification.md)).
 - **Logs** per episode: steps, success, rejected layouts, time per step. A
   summary line every N episodes gives an ETA.
@@ -124,6 +126,11 @@ Recommendation: start with **Google Drive**, uploading zipped dataset versions
 (`dataset_v1.zip`) with `rclone` or the web UI. In Colab, copy the zip to
 `/content` and unzip it there. Move to HF Hub if Drive gets slow.
 
+This is also what the official Colab FAQ advises. Drive has per-file and
+per-user operation and bandwidth quotas, and "accessing too many distinct
+files too quickly" gives I/O errors. Copy archives to the VM and unpack them
+there instead of reading many small files from the mounted Drive.
+
 Never commit datasets to git (`data/` is already ignored).
 
 ## Stage 4: Training (`train.py`, local or Colab)
@@ -136,10 +143,13 @@ python train.py --config configs/train_cnn.yaml --data /path/to/dataset_v1 --out
 
 - **No Isaac Sim dependency.** Only `torch`, `torchvision`, `numpy`, `pyyaml`
   (+ optional `tensorboard`/`wandb`).
-- **Checkpoint every epoch** and resume with `--resume`. Required for Colab,
-  where sessions disconnect (free tier: idle timeout and a session limit of
-  several hours). Write checkpoints to Drive, not to `/content`, which is
-  lost on disconnect.
+- **Checkpoint every epoch** and resume with `--resume`. Required for Colab.
+  The FAQ says VMs are deleted when idle and have a maximum lifetime, and
+  that free-tier limits (idle timeout, lifetime, GPU type) are **not
+  published and change over time**. Write checkpoints to Drive, not to
+  `/content`, which is lost on disconnect.
+- Colab can also connect to a **local runtime**: the notebook UI running on
+  your own GPU. Drive mounting does not work in that mode.
 - **Deterministic seeds**; log the dataset `manifest.json` version with every
   run, so results can be traced to the data.
 - **Feature precomputation** ([0004](0004-sequence-training.md#training-details)):

@@ -38,8 +38,18 @@ in Python by ray-casting circles and road edges, with no RTX rendering. It
 can't serve as check #1 (it is the same geometry), but it is enough for #3
 and for quick experiments. Use the RTX lidar for #1 and #2.
 
+### API
+
+How to read the lidar in 6.0.1 is in [simulator.md](../knowledge/simulator.md#rtx-lidar-capture-from-the-601-docs):
+`LidarSensor` with the `generic-model-output` annotator. The timeline must be
+playing, and the sim stepped with `app.update()`. Per-return object IDs
+(with `--/rtx-transient/stableIds/enabled=true`) tell which obstacle each
+point hit, which makes check #1 much easier.
+
 ## Open questions
 
 - Is the RTX lidar annotator output readable per step when the robot is
-  teleported (no motion during a 20 Hz scan)? To test.
+  teleported (no motion during a 20 Hz scan)? A rotary scan may mix returns
+  from before and after the teleport. To test: teleport, update until a
+  full scan has passed, then read.
 - Q8 in [open-questions.md](../open-questions.md).
