@@ -133,6 +133,10 @@ On top of that:
 
 ### Storage format
 
+This is the raw layout `collect.py` writes locally (handy for debugging).
+For training it is packed into one `.npz` per episode, see
+[0006](0006-pipeline.md#stage-2-check-and-pack).
+
 ```
 data/rollouts/
   ep_000000/

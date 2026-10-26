@@ -13,8 +13,11 @@ When a question is answered, write the answer next to it (or move it to
 | Q6 | Should the robot return to its original lane after dodging (lane-centre penalty)? | Yes, small penalty | 0002 |
 | Q7 | Obstacle models: primitives only, or a folder of USD assets? Their real footprint radii? | Primitives first | 0002 |
 | Q8 | Is RTX lidar fast enough per step, or use the analytic scan for bulk data? | RTX for checks, analytic for bulk | 0003 |
-| Q9 | Compute budget for training (GPU, hours)? Decides end-to-end vs frozen encoder. | Frozen encoder + precomputed features | 0004 |
+| Q9 | Compute budget for training (GPU, hours)? Decides end-to-end vs frozen encoder. | Frozen encoder + precomputed features; local GPU or Colab | 0004, 0006 |
 | Q10 | Which road-marking styles to hold out for the generalization test set? | One centre-line style and one edge style never seen in training | 0002 |
+| Q11 | Where to host datasets: Google Drive, Hugging Face Hub, Kaggle? | Google Drive shared folder, zipped versions | 0006 |
+| Q12 | Local GPU model and VRAM? Decides whether training and Isaac Sim can run at once, and how many `collect.py` processes fit. | Run one at a time | 0006 |
+| Q13 | Is the GitHub repo public, or does Colab need a token to clone it? | Token if private | 0006 |
 
 ## Answered
 

@@ -13,6 +13,7 @@ Status values: `draft` (being discussed) · `accepted` (we will do it) ·
 | [0003](0003-lidar-verification.md) | LIDAR for verification | draft |
 | [0004](0004-sequence-training.md) | Sequence training | draft |
 | [0005](0005-control-vector.md) | Control vector | draft |
+| [0006](0006-pipeline.md) | Pipeline: data gathering → training (local / Colab) | draft |
 
 ## Template
 
