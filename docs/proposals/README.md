@@ -12,6 +12,7 @@ Status values: `draft` (being discussed) · `accepted` (we will do it) ·
 | [0002](0002-dataset-generation.md) | Dataset generation | draft |
 | [0003](0003-lidar-verification.md) | LIDAR for verification | draft |
 | [0004](0004-sequence-training.md) | Sequence training | draft |
+| [0005](0005-control-vector.md) | Control vector | draft |
 
 ## Template
 

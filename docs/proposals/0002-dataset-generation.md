@@ -79,24 +79,57 @@ the dataset, retrain. The cost-to-go map makes the labelling free.
 ### Randomization
 
 Per episode: obstacle count, type, size, colour, yaw, position; start y.
-Later (level 4): lighting intensity/direction, road/grass textures, camera
-noise, distractor objects off the road.
+Later (level 4): lighting intensity/direction, camera noise, distractor
+objects off the road.
+
+Obstacle size is randomized on purpose. If all obstacles had one size, the
+network could read distance from apparent size alone. With random sizes it
+has to use other cues (position in the image, motion between frames), which
+is what [0004](0004-sequence-training.md#distance-estimation) relies on.
+
+### Road appearance (for generalization)
+
+The network should not learn one particular road. It should learn
+"obstacle relative to free space". Each episode draws a road style. All of
+these are flat boxes like the current markings, so they are cheap to build.
+
+| Element | Variants |
+|---|---|
+| Centre line | none · single dashed · single solid · double solid · solid + dashed · double dashed |
+| Edge lines (each side independently) | none · solid · dashed · double solid |
+| Line parameters | colour white / yellow, width 0.08–0.20 m, dash length and gap, worn (random missing segments) |
+| Road edge / shoulder | grass · gravel · sand · sidewalk with curb · dirt, each side independently |
+| Road surface | asphalt colour / brightness, optional texture, patches |
+| Geometry | lane width 1.8–3.0 m, 1–3 lanes (changes total width) |
+
+Notes:
+- Keep the robot and obstacle geometry independent of the style, so that the
+  expert labels don't depend on the paint.
+- If the robot should return to "its lane" (Q6), the lane centre is taken from
+  the geometry, so it is defined even when there are no markings.
+- Raised curbs are obstacles for the robot. Either mark the drivable corridor
+  to exclude them, or keep curbs low and visual only. Decide per variant.
+- Implementation: build the road per episode (delete and recreate
+  `/World/Road`), or pre-build a few style variants and toggle visibility as
+  with the obstacle pool. Pre-building is faster.
+
+**Generalization test:** keep some combinations out of training
+(e.g. one centre-line style and one shoulder material, Q10) and report
+closed-loop results on them separately.
 
 ### Feasibility
 
 The current geometry often leaves no gap (see
 [scene-generator limitations](../knowledge/scene-generator.md#known-limitations-as-of-commit-6aaafa2)):
-the robot is ~1.5 m wide and the road is 4 m. Options (can be combined):
+the robot is ~1.5 m wide and the road is 4 m.
 
-1. Define a **drivable corridor** wider than the asphalt, e.g. road + 1 m
-   shoulder on each side, and count the grass as drivable. Lane lines
-   still give visual cues.
-2. Limit obstacle size or the y range where obstacles spawn.
-3. Reject layouts the expert can't solve (always do this, and log the rate).
-4. Widen the road (3 lanes, or 3 m lanes).
+Decided: the robot **may leave the asphalt**. The drivable corridor is the
+road plus a shoulder on each side (e.g. 1.5 m), and the expert may plan through it.
 
-Recommended: 1 + 3, and set `USD_OBSTACLE_RADIUS` per model instead of 1.75 m
-for all.
+On top of that:
+1. Reject layouts the expert can't solve (always, and log the rate).
+2. Set the footprint radius per USD obstacle model instead of 1.75 m for all.
+3. Optionally vary road width (see [Road appearance](#road-appearance-for-generalization)).
 
 ### Storage format
 
@@ -105,17 +138,27 @@ data/rollouts/
   ep_000000/
     scene.json        # layout, as today, plus seed and generator version
     steps.jsonl       # one line per step (fields below)
-    rgb/000000.png    # camera_front, e.g. 320x240
+    rgb/000000.png    # camera_front, low resolution (e.g. 160x120)
     lidar/000000.npy  # optional, see 0003
   ...
   index.csv           # episode, steps, success, n_obstacles, split
 ```
 
-Per step: `step, x, y, expert_action, expert_costs[4], executed_action,
-perturbed, min_clearance, collided, done`.
+Per step: `step, x, y, heading, expert_action, expert_costs[4],
+executed_action, perturbed, min_clearance, collided, done`, plus the distance
+targets used in [0004](0004-sequence-training.md#distance-estimation):
+`dist_ahead` (free distance along +X in the robot's corridor),
+`nearest_obstacle` (distance and bearing), `lateral_to_edges` (distance to
+left and right road edges).
 
-Size estimate: ~200 steps × 200 episodes = 40 k frames. At ~100 kB per
-PNG that is about 4 GB. The real rendering speed in headless mode has to be
+`scene.json` also stores the road style (marking types, colours, shoulder
+materials, widths), so results can be broken down by style.
+
+Storing `(x, y, heading)` lets us re-run the expert offline with a different
+action set without rendering again ([0005](0005-control-vector.md#proposal)).
+
+Size estimate: ~200 steps × 200 episodes = 40 k frames. At 160×120 a PNG is
+roughly 20–40 kB, about 1–2 GB in total. The real rendering speed in headless mode has to be
 measured; remove the `time.sleep(0.5)` from the loop first.
 
 ### Splits
@@ -147,4 +190,4 @@ almost identical, and a frame-level split leaks them into validation.
 
 ## Open questions
 
-- Q1, Q4–Q7 in [open-questions.md](../open-questions.md).
+- Q5b, Q6, Q7, Q10 in [open-questions.md](../open-questions.md).

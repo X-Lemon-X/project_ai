@@ -25,9 +25,11 @@ Proposals
 - [0002 Dataset generation](proposals/0002-dataset-generation.md)
 - [0003 LIDAR for verification](proposals/0003-lidar-verification.md)
 - [0004 Sequence training](proposals/0004-sequence-training.md)
+- [0005 Control vector](proposals/0005-control-vector.md)
 
 ## Conventions
 
+- English only.
 - One topic per file. Link between pages with relative links.
 - Write facts in `knowledge/`, opinions and plans in `proposals/`.
 - When a proposal is accepted, set its status to `accepted`, add a line to

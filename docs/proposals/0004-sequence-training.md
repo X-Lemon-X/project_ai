@@ -14,6 +14,10 @@ A single image is often not enough to choose the right action:
   left or right gap is not visible in one frame. A memoryless policy can
   flip between left and right.
 
+- **Distance.** From one image a large far obstacle looks like a small near
+  one. Over a sequence, the known step length and the way the obstacle grows
+  and shifts in the image (motion parallax, looming) give its distance.
+
 Scope: **dodging only**. The road is a corridor and the goal is to make
 progress along +X. No maze solving, no long-range planning or mapping.
 
@@ -43,9 +47,37 @@ closed-loop tests.
   end-to-end only if needed.
 - Loss: cross-entropy per step on the expert action (optionally soft labels
   from expert costs), with class weights.
+- Auxiliary distance heads, see [Distance estimation](#distance-estimation).
 - **Don't feed previous actions as input**, at least at first. Behaviour
   cloning models with access to past actions tend to learn "repeat the last
   action" (copycat problem) and fail when driving.
+
+### Distance estimation
+
+Goal: from a sequence of images, the network should estimate how far the
+obstacles are. We make this an explicit, supervised output next to the
+action head:
+
+| Target | Meaning | Source |
+|---|---|---|
+| `dist_ahead` | Free distance along +X in the robot's corridor (clipped, e.g. at 12 m) | geometry |
+| `nearest_obstacle` | Distance and bearing of the nearest obstacle, including ones beside or behind the camera's view | geometry |
+| `lateral_to_edges` | Distance to the left and right road edges | geometry |
+
+- Loss: action cross-entropy + λ · (smooth L1 on distances), λ ≈ 0.1–1.
+  Predict log-distance or clip, so far obstacles don't dominate.
+- Labels are exact, from the scene geometry. LIDAR ([0003](0003-lidar-verification.md))
+  gives an independent check of the same quantities.
+- Why it helps: the action head gets features that must encode distance, and
+  we get an interpretable output for debugging ("it turned late because it
+  thought the box was 6 m away").
+- `nearest_obstacle` for obstacles outside the field of view can only be
+  right if the model remembers. This tests memory directly.
+- Expected result: single-frame models do poorly on `dist_ahead` when
+  obstacle sizes vary; stacking and GRU models do better. Report distance
+  MAE by true distance range and by model type.
+- Parallax needs motion. During `backward` steps or waiting, the
+  estimate must come from memory. Check those steps separately.
 
 ### Evaluation
 
@@ -54,7 +86,11 @@ closed-loop tests.
 - **Targeted test set**: layouts where the robot has to pass close beside
   an obstacle, or choose between two gaps. These show whether memory
   actually helps.
-- Ablations: sequence length T, frame stack size k, GRU vs stack.
+- Distance MAE per target, single-frame vs stack vs GRU.
+- Results split by road style, including the held-out styles from
+  [0002](0002-dataset-generation.md#road-appearance-for-generalization).
+- Ablations: sequence length T, frame stack size k, GRU vs stack, with and
+  without the distance heads.
 - Compare with a lidar-only policy. The 360° lidar keeps seeing the obstacle
   beside the robot, so it should need less memory than the camera.
 

@@ -61,6 +61,10 @@ domain-randomization step. Then the actions would either stay world-frame
 - **Diagonal actions / `stop`.** Smoother paths and a "wait" option. Adds
   classes; leave out unless needed.
 
+All control-vector options, including turning, are compared in
+[0005](0005-control-vector.md).
+
 ## Open questions
 
-- Q1–Q3 in [open-questions.md](../open-questions.md).
+- Q2, Q3 in [open-questions.md](../open-questions.md). Q1 is answered: sideways
+  translation with fixed heading.

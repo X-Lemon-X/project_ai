@@ -2,6 +2,20 @@
 
 Newest first. One entry per decision: what, why, and where it is described.
 
+## 2026-10-26 — Answers on control, sensors, data
+
+- Left/right are **sideways moves with fixed heading**. Turning may be added
+  later; options are compared in [0005](proposals/0005-control-vector.md).
+- The robot **may drive off the asphalt** (shoulder / grass).
+  → [0002](proposals/0002-dataset-generation.md#feasibility)
+- Policy camera: **`camera_front` at low resolution**.
+- **Road appearance is randomized**: centre-line types (single/double,
+  solid/dashed), edge lines and shoulder materials, for generalization.
+  → [0002](proposals/0002-dataset-generation.md#road-appearance-for-generalization)
+- In sequence training the network should also **estimate distance** to
+  obstacles. → [0004](proposals/0004-sequence-training.md#distance-estimation)
+- Documentation is **English only**.
+
 ## 2026-10-26 — Scope and approach of the obstacle-dodging task
 
 - Robot motion is simplified to a **material point** with discrete actions

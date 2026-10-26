@@ -21,7 +21,7 @@ Paths inside the robot file (prefix `/World/Robot/` in the scene):
 
 | Sensor | Path | Use in the project |
 |---|---|---|
-| Front camera | `base_view/sensors_mount/camera_front` | Main policy input |
+| Front camera | `base_view/sensors_mount/camera_front` | Policy input (decided), low resolution |
 | Left / right cameras | `base_view/sensors_mount/camera_left`, `camera_right` | Optional, wider view |
 | OAK-D Lite RGB | `base_view/sensors_mount/luxonis_oak_d_lite/rgb_camera` | Alternative front camera |
 | Livox Mid-360 lidar | `base_view/sensors_mount/lidar_livox_Mid360` | Verification and comparison ([0003](../proposals/0003-lidar-verification.md)) |
