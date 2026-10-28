@@ -26,4 +26,4 @@ When a question is answered, write the answer next to it (or move it to
 | Q4 | May the robot leave the asphalt? | **Yes**, it may drive on the shoulder / grass. |
 | Q5 | Which camera? | **`camera_front`, low resolution.** |
 | — | Documentation language? | **English only.** |
-| Q13 | Is the GitHub repo public, or does Colab need a token? | **Public** (`github.com/X-Lemon-X/project_ai`), so Colab clones it without a token. Checked 2026-10-28. |
+| Q13 | Is the GitHub repo public, or does Colab need a token? | **Public** (`github.com/X-Lemon-X/project_ai`), so Colab clones it without a token. Checked 2026-10-26. |

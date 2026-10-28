@@ -6,26 +6,7 @@ linked pages; this file is the short version.
 
 ---
 
-## 2026-10-28 — Colab pipeline check
-
-**Done**
-- Added [`notebooks/colab_smoke_test.ipynb`](../notebooks/colab_smoke_test.ipynb).
-  It tests the training side of the pipeline before the real dataset exists:
-  GPU, Google Drive mount, repo clone, a synthetic dataset in the planned
-  per-episode `.npz` format, the zip → Drive → unzip round trip, ResNet18
-  fine-tuning, checkpoint + resume, and TorchScript export.
-- Local CPU run with the Colab settings: all checks passed except the GPU
-  check, which is expected without a GPU. Validation accuracy 0.72 against a
-  majority-class baseline of 0.46.
-- Confirmed the GitHub repository is public, so Colab can clone it without
-  a token.
-
-**Next**
-- Run the notebook in Colab on a T4 GPU and record the result here.
-
----
-
-## 2026-10-26 — Knowledge base, proposals, literature
+## 2026-10-26 — Knowledge base, proposals, literature, Colab pipeline check
 
 **Done**
 - Set up the Markdown knowledge base in [`docs/`](README.md) and the
@@ -42,6 +23,16 @@ linked pages; this file is the short version.
   learning (DAgger, DART, ChauffeurNet, the copycat problem).
 - Checked the Isaac Sim 6.0.1 camera and lidar capture APIs against the
   official docs ([simulator.md](knowledge/simulator.md)).
+- Added [`notebooks/colab_smoke_test.ipynb`](../notebooks/colab_smoke_test.ipynb).
+  It tests the training side of the pipeline before the real dataset exists:
+  GPU, Google Drive mount, repo clone, a synthetic dataset in the planned
+  per-episode `.npz` format, the zip → Drive → unzip round trip, ResNet18
+  fine-tuning, checkpoint + resume, and TorchScript export.
+- Local CPU run with the Colab settings: all checks passed except the GPU
+  check, which is expected without a GPU. Validation accuracy 0.72 against a
+  majority-class baseline of 0.46.
+- Confirmed the GitHub repository is public, so Colab can clone it without
+  a token.
 
 **Decisions** (full list in [decisions.md](decisions.md))
 - The robot is a point mass with fixed heading. Actions: forward, backward,
@@ -58,9 +49,12 @@ linked pages; this file is the short version.
   (robot ~1.5 m wide, road 4 m). Hence the decision to allow driving on the
   shoulder, plus a feasibility check.
 
+**Next**
+- Run the notebook in Colab on a T4 GPU and record the result here.
+
 ---
 
-## 2026-10-21 — Meeting with the course supervisor: dataset generation in Isaac Sim
+## 2026-10-21 — Meeting during class: dataset generation in Isaac Sim
 
 **Discussed**
 - How to generate the training dataset in Isaac Sim, without manual driving.
