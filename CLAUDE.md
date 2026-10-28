@@ -136,6 +136,8 @@ files should have their base at z = 0. Their footprint is assumed to be
 
 - Read `docs/README.md` before planning larger changes; record decisions in
   `docs/decisions.md` and unresolved points in `docs/open-questions.md`.
+- `docs/log.md` is the project log required for the class: add an entry
+  (newest first) for each supervisor meeting and each larger work session.
 - "Process the inbox" means: for each new file in `inbox/`, extract what is
   relevant into `docs/knowledge/` or `docs/proposals/`, add a row to
   `docs/sources.md`, and never commit the raw file.

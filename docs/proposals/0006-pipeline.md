@@ -89,6 +89,8 @@ Two Python environments:
 `check_dataset.py` (run before uploading anything):
 - episode count, success rate, rejected-layout rate
 - action distribution, overall and per road style
+- position coverage histogram (robot `y` vs nearest obstacle), see
+  [0002](0002-dataset-generation.md#things-to-monitor)
 - distance target ranges
 - lidar vs geometry agreement (catches frame/offset bugs)
 - a contact sheet PNG of random frames with labels drawn on them, for a

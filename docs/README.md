@@ -9,6 +9,7 @@ Code lives in the repo root; this folder holds explanations, plans and decisions
 |---|---|
 | [knowledge/](knowledge/) | Facts: how the simulator, robot, sensors and scripts work. Should stay true until the code changes. |
 | [proposals/](proposals/) | Plans and design options that are not built yet. Each has a status. |
+| [log.md](log.md) | Project log for the class: meetings and work sessions, newest first. |
 | [decisions.md](decisions.md) | Short log of decisions taken, newest first, with the reason. |
 | [open-questions.md](open-questions.md) | Things we still have to decide or find out. |
 | [sources.md](sources.md) | Where external information came from (documents processed from `inbox/`, links). |
