@@ -50,6 +50,7 @@ perfect and the data generation runs unattended.
 | `data/scenes/` | Generated output: one `scene_XXXXX.json` per episode |
 | `docs/` | Knowledge base (Markdown): facts, proposals, decisions, open questions. Start at `docs/README.md` |
 | `inbox/` | Drop zone for raw source documents. Git-ignored except `.gitignore` and `README.md` |
+| `notebooks/colab_smoke_test.ipynb` | Colab sanity check of the training pipeline on synthetic data (no Isaac Sim needed) |
 
 ## The robot (`nomad_r.usd`)
 

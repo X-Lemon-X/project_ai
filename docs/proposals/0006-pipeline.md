@@ -166,6 +166,14 @@ Colab notebook (`notebooks/colab_train.ipynb`) only does:
 
 All logic stays in `train.py`, so local and Colab runs can't drift apart.
 
+**Smoke test (exists):** [`notebooks/colab_smoke_test.ipynb`](../../notebooks/colab_smoke_test.ipynb)
+checks this stage before any real data exists. It covers GPU, Drive mount, repo
+clone, a synthetic dataset in the per-episode `.npz` format, the zip → Drive →
+unzip round trip, ResNet18 fine-tuning, checkpoint + resume from Drive, and
+TorchScript export. Open it in Colab and choose *Run all*. The last cell
+prints PASS/FAIL per check. Its training code is self-contained and is not
+yet the real `train.py`.
+
 Local training: the Isaac Sim machine already has an RTX GPU. Don't run
 `collect.py` and training at the same time unless VRAM allows.
 
