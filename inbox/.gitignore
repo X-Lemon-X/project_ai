@@ -1,0 +1,6 @@
+# Raw documents dropped here are NOT committed (PDFs, papers, notes, screenshots...).
+# Only this file and the README are tracked, so the folder exists in every clone.
+# Knowledge extracted from inbox documents goes to docs/ and is logged in docs/sources.md.
+*
+!.gitignore
+!README.md

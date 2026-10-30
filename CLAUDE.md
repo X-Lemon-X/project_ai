@@ -21,6 +21,10 @@ Each level reuses the same scene, data generator and training code.
 
 Levels 1–3 are a complete project on their own; the rest is extension.
 
+The plan is being refined in `docs/proposals/` (point-mass robot, image-only
+policy with 4 actions, lidar for verification, then sequence training).
+Where a proposal and this table disagree, check `docs/decisions.md`.
+
 **Key idea:** we don't drive the robot manually to collect data. A script
 teleports the robot and obstacles to random poses, takes a camera image, and
 computes the correct label from the known geometry. The labels come out
@@ -44,6 +48,9 @@ perfect and the data generation runs unattended.
 | `luxonis_oak_d_lite/` | OAK-D Lite camera assets used by the robot |
 | `isaac/` | Livox Mid-360 lidar config + helper script |
 | `data/scenes/` | Generated output: one `scene_XXXXX.json` per episode |
+| `docs/` | Knowledge base (Markdown): facts, proposals, decisions, open questions. Start at `docs/README.md` |
+| `inbox/` | Drop zone for raw source documents. Git-ignored except `.gitignore` and `README.md` |
+| `notebooks/colab_smoke_test.ipynb` | Colab sanity check of the training pipeline on synthetic data (no Isaac Sim needed) |
 
 ## The robot (`nomad_r.usd`)
 
@@ -124,6 +131,18 @@ files should have their base at z = 0. Their footprint is assumed to be
 3. Train a small pretrained CNN (ResNet18 / MobileNet) in PyTorch.
 4. Closed-loop test: camera → model → wheel command, then measure success and
    collision rate on new random layouts.
+
+## Knowledge base
+
+- Read `docs/README.md` before planning larger changes; record decisions in
+  `docs/decisions.md` and unresolved points in `docs/open-questions.md`.
+- `docs/log.md` is the project log required for the class: add an entry
+  (newest first) for each supervisor meeting and each larger work session.
+- "Process the inbox" means: for each new file in `inbox/`, extract what is
+  relevant into `docs/knowledge/` or `docs/proposals/`, add a row to
+  `docs/sources.md`, and never commit the raw file.
+- When code changes a fact documented in `docs/knowledge/`, update that page
+  in the same change.
 
 ## Notes for contributors
 
