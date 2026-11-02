@@ -48,6 +48,7 @@ perfect and the data generation runs unattended.
 | `luxonis_oak_d_lite/` | OAK-D Lite camera assets used by the robot |
 | `isaac/` | Livox Mid-360 lidar config + helper script |
 | `check_dataset.py` | Checks a generated dataset (lidar vs geometry, contact sheets). Plain Python + numpy + Pillow |
+| `view_lidar.py` | Interactive viewer: camera image next to a 3D view of the lidar scan and obstacles. Plain Python + matplotlib |
 | `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |
 | `docs/` | Knowledge base (Markdown): facts, proposals, decisions, open questions. Start at `docs/README.md` |
 | `inbox/` | Drop zone for raw source documents. Git-ignored except `.gitignore` and `README.md` |

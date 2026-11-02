@@ -115,6 +115,18 @@ contact sheets (`sheet_layout_XXXXXX.png`, one image per grid cell). On
 2026-11-02 (6 layouts, 150 samples): median error 0.029 m, max 0.09 m, which
 is the sensor's 0.025 m noise.
 
+To look at single samples:
+
+```bash
+python3 view_lidar.py data/grid --layout 2 --sample 12
+```
+
+This opens the camera image next to a 3D view of the lidar hits (drawn at
+lidar height, because the scan is 2D), the obstacles from `scene.json` at
+their real size, the road, the robot and the camera's field of view. Keys:
+←/→ sample, ↑/↓ layout, `c` behind-the-robot view, `t` top view. Drag to
+rotate. `--save view.png` writes the view to a file without opening a window.
+
 ## Speed
 
 About 0.25 s per sample with lidar on an RTX machine (the lidar wait dominates),
