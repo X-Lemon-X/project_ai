@@ -29,7 +29,8 @@ Newest first. One entry per decision: what, why, and where it is described.
   later; options are compared in [0005](proposals/0005-control-vector.md).
 - The robot **may drive off the asphalt** (shoulder / grass).
   → [0002](proposals/0002-dataset-generation.md#feasibility)
-- Policy camera: **`camera_front` at low resolution**.
+- ~~Policy camera: **`camera_front` at low resolution**.~~ Superseded on
+  2026-11-02 by the OAK-D Lite `rgb_camera` at 224 × 224.
 - **Road appearance is randomized**: centre-line types (single/double,
   solid/dashed), edge lines and shoulder materials, for generalization.
   → [0002](proposals/0002-dataset-generation.md#road-appearance-for-generalization)

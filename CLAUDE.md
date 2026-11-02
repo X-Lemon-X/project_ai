@@ -43,7 +43,7 @@ perfect and the data generation runs unattended.
 
 | Path | What it is |
 |---|---|
-| `scene_gen.py` | Builds the road scene and randomizes robot and obstacle placement for each episode |
+| `scene_gen.py` | Builds the road scene, places random obstacles per layout and captures camera + lidar over a grid of robot positions |
 | `nomad_r.usd` | The robot (default prim `/nomad_r_urdf`), with all its sensors |
 | `luxonis_oak_d_lite/` | OAK-D Lite camera assets used by the robot |
 | `isaac/` | Livox Mid-360 lidar config + helper script |

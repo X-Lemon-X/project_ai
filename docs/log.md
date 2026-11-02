@@ -26,6 +26,10 @@ linked pages; this file is the short version.
   after a teleport is stale ([simulator](knowledge/simulator.md#rtx-lidar-capture-from-the-601-docs)).
 - Added `check_dataset.py`: lidar vs ray-cast geometry and contact sheets.
   6 layouts / 150 samples: median error 0.029 m, max 0.09 m.
+- Added `view_lidar.py`: camera image next to a 3D view of the lidar hits,
+  obstacles, road and robot, to compare them by eye.
+- Root `README.md`: how to share a dataset and how to use both checkers
+  without Isaac Sim (only Patryk's PC can generate).
 
 **Decisions** → [decisions.md](decisions.md#2026-11-02--grid-sampling-for-the-first-dataset):
 grid sampling, labels computed offline, heading fixed at 0°, OAK-D camera at

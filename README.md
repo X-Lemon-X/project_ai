@@ -14,6 +14,11 @@ To share a dataset, zip the output folder (e.g. `data/grid`) and send it or put 
 on the shared drive. Unzip it on the other machine so the layout folders end up in
 `data/grid/`. Datasets are never committed to git.
 
+- Generate base datasets
+```bash
+~/isaacsim/python.sh scene_gen.py --robot nomad_r.usd --num 1000
+```
+
 A dataset folder looks like this:
 
 ```
@@ -82,6 +87,7 @@ appear in the image where the 3D view says they are.
 | `c` | view from behind the robot (like the camera) |
 | `t` | view from the top |
 | drag with the mouse | rotate the 3D view |
+| `q` | close the window |
 
 To save a view as an image without opening a window, add `--save view.png`.
 
