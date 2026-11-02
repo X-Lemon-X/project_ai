@@ -2,6 +2,13 @@
 
 Status: draft · Date: 2026-10-26
 
+> **2026-11-02:** the first dataset uses **grid sampling** instead of expert
+> rollouts: per layout, the robot is teleported over a distance × lateral
+> grid, and only geometry is saved (labels are computed offline). This
+> covers the single-frame case. The rollouts below are still the plan for
+> sequence data. See [decisions](../decisions.md#2026-11-02--grid-sampling-for-the-first-dataset)
+> and [scene-generator](../knowledge/scene-generator.md).
+
 ## Problem
 
 We need (image, correct action) pairs, collected without manual driving,

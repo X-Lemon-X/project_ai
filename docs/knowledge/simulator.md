@@ -16,7 +16,11 @@
 - Build scenes with plain USD (`pxr`: `UsdGeom`, `Gf`, `UsdLux`).
   The `isaacsim.core` helper APIs are renamed between releases; `pxr` is stable.
 - After moving prims, call `simulation_app.update()` a few times before reading
-  sensors, so the renderer shows the new poses. `scene_gen.py` uses 3 updates.
+  sensors, so the renderer shows the new poses. `scene_gen.py` uses 4 (`--settle`).
+- Move a referenced asset with your own transform ops. If the asset's root
+  prim has its own ops (as `nomad_r.usd` does), call `ClearXformOpOrder()`
+  first, or `XformCommonAPI` fails silently. See
+  [robot-and-sensors](robot-and-sensors.md#nomad_r-nomad_rusd-76-mb).
 - `--headless` runs without a window and is what dataset generation should use.
 
 ## Camera capture (Replicator, from the 6.0.1 docs)
@@ -47,8 +51,17 @@ rep.orchestrator.wait_until_complete()
   `semantic_segmentation`, `bounding_box_2d_tight`.
 - The docs set DLSS to Quality mode for synthetic data:
   `carb.settings.get_settings().set("rtx/post/dlss/execMode", 2)`.
-- Not yet run in this repo. The snippet is from the docs, with our camera
-  path filled in.
+- The snippet above is from the docs. What `scene_gen.py` actually does
+  (tested 2026-11-02): it plays the timeline, attaches an `rgb` annotator to a
+  render product, and reads `rgb.get_data()` after `simulation_app.update()`
+  calls. It does not use `rep.orchestrator.step()`, so camera and lidar are
+  stepped the same way.
+  - **Annotators only produce data while the timeline plays**, the camera too.
+    Without play the `rgb` annotator stays empty.
+  - The first ~3 updates after creating the render product return an empty
+    array; `scene_gen.py` waits until the first image arrives.
+  - After a teleport, 4 updates give a clean frame (no ghosting visible in the
+    contact sheets).
 
 ## RTX lidar capture (from the 6.0.1 docs)
 
@@ -80,6 +93,19 @@ if data is not None:
   read the camera annotator after it).
 - The example script `standalone_examples/api/isaacsim.sensors.experimental.rtx/inspect_lidar_gmo.py`
   in the Isaac Sim install shows how to read the buffer.
+- **Measured with `scene_gen.py` (2026-11-02)**, `LidarSensor(path,
+  annotators=["generic-model-output"])` on the robot's existing `OmniLidar`
+  prim, timeline playing at 60 Hz:
+  - A new GMO buffer arrives about every 6 updates (100 ms of sim time).
+    `gmo.frameStart.timestampNs` is in sim-time nanoseconds, comparable to
+    `timeline.get_current_time() * 1e9`.
+  - **The first buffer stamped after a teleport still holds returns from the
+    old pose.** The second one is correct. `scene_gen.py` waits for two
+    buffers whose `frameStart` is after the teleport (about 12 updates).
+  - Each buffer covers the full 360°, about 100 k points, in spherical
+    coordinates. Azimuth 0° points backwards; see
+    [robot-and-sensors](robot-and-sensors.md#livox-mid-360-lidar).
+  - Checked against ray-cast geometry: median error 0.029 m.
 - In the 6.0.1 docs the per-return object IDs (`objId`) are only filled
   with `--/rtx-transient/stableIds/enabled=true`. They can tell which
   obstacle a point hit, which is useful for verification ([0003](../proposals/0003-lidar-verification.md)).

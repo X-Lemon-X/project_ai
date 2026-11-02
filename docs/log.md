@@ -6,6 +6,40 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-02 — Grid dataset generator with camera and lidar
+
+**Done**
+- Reviewed `scene_gen.py` and found why obstacles appeared beside and behind
+  the robot: **the robot never moved.** The root prim of `nomad_r.usd` has its
+  own translate + 180° yaw ops, and `XformCommonAPI` failed silently on them.
+  Fixed by clearing the op order. The forward yaw is now detected from the
+  camera ([robot-and-sensors](knowledge/robot-and-sensors.md)).
+- Rewrote `scene_gen.py` as a **grid generator**: per layout, 1–3 obstacles
+  (cube / box / wall / cylinder / sphere), and the robot is teleported over
+  a 5 × 5 grid (distance 10 → 1 m × lateral position across road + shoulders).
+  Saves a 224 × 224 OAK-D RGB image, a 360-bin lidar scan and the exact
+  geometry per position ([scene-generator](knowledge/scene-generator.md)).
+- The OAK-D camera in the USD had a 144° FOV; the generator now sets 69°.
+- Lowered the lights (dome 800 → 300, sun 2500 → 1200): images were
+  overexposed.
+- Lidar: found that its azimuth 0° points backwards and that the first scan
+  after a teleport is stale ([simulator](knowledge/simulator.md#rtx-lidar-capture-from-the-601-docs)).
+- Added `check_dataset.py`: lidar vs ray-cast geometry and contact sheets.
+  6 layouts / 150 samples: median error 0.029 m, max 0.09 m.
+
+**Decisions** → [decisions.md](decisions.md#2026-11-02--grid-sampling-for-the-first-dataset):
+grid sampling, labels computed offline, heading fixed at 0°, OAK-D camera at
+224 × 224, no cones, lidar in the same pass.
+
+**Next**
+- Generate a first real dataset (e.g. 1000 layouts ≈ 25 k images, ~2 h).
+- Write the offline labeller (pick the scheme, Q14 in
+  [open-questions](open-questions.md)).
+- Road-style and lighting randomization
+  ([0002](proposals/0002-dataset-generation.md#road-appearance-for-generalization)).
+
+---
+
 ## 2026-10-26 — Knowledge base, proposals, literature, Colab pipeline check
 
 **Done**

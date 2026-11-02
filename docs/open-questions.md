@@ -7,12 +7,10 @@ When a question is answered, write the answer next to it (or move it to
 
 | # | Question | Default assumed in proposals | Affects |
 |---|---|---|---|
-| Q2 | Fix heading at 0°, or keep some heading variation (e.g. the ±25° from `scene_gen.py`)? | Fixed 0° until turning is in the control vector, see [0005](proposals/0005-control-vector.md#heading) | 0001, 0005 |
 | Q3 | Final control vector: is `backward` needed, add `stop` / diagonals / turning? | Considered in [0005](proposals/0005-control-vector.md) | 0001, 0002, 0005 |
-| Q5b | Exact image resolution for `camera_front`. | 160×120 for training, check that 1-lane-line-wide details survive | 0002 |
 | Q6 | Should the robot return to its original lane after dodging (lane-centre penalty)? | Yes, small penalty | 0002 |
-| Q7 | Obstacle models: primitives only, or a folder of USD assets? Their real footprint radii? | Primitives first | 0002 |
-| Q8 | Is RTX lidar fast enough per step, or use the analytic scan for bulk data? | RTX for checks, analytic for bulk | 0003 |
+| Q8 | Is RTX lidar fast enough per step, or use the analytic scan for bulk data? | RTX for checks, analytic for bulk. Measured 2026-11-02: RTX costs ~0.25 s per sample incl. the camera (see [simulator](knowledge/simulator.md#rtx-lidar-capture-from-the-601-docs)); fine for grid data, still open for long rollouts | 0003 |
+| Q14 | Label scheme for the grid data: left/straight/right, F/B/L/R from the cost-to-go expert, or regression? | Computed offline from the saved geometry; scheme not chosen yet | 0002, 0005 |
 | Q9 | Compute budget for training (GPU, hours)? Decides end-to-end vs frozen encoder. | Frozen encoder + precomputed features; local GPU or Colab | 0004, 0006 |
 | Q10 | Which road-marking styles to hold out for the generalization test set? | One centre-line style and one edge style never seen in training | 0002 |
 | Q11 | Where to host datasets: Google Drive, Hugging Face Hub, Kaggle? | Google Drive shared folder, zipped versions | 0006 |
@@ -24,6 +22,9 @@ When a question is answered, write the answer next to it (or move it to
 |---|---|---|
 | Q1 | Left/right: sideways translation or turning? | Sideways translation with **fixed heading**. Turning may be added later as an extension of the control vector ([0005](proposals/0005-control-vector.md)). |
 | Q4 | May the robot leave the asphalt? | **Yes**, it may drive on the shoulder / grass. |
-| Q5 | Which camera? | **`camera_front`, low resolution.** |
+| Q2 | Fix heading at 0°? | **Yes, fixed 0°** (2026-11-02). |
+| Q5 | Which camera? | ~~`camera_front`, low resolution~~ → **OAK-D Lite `rgb_camera`** (2026-11-02). |
+| Q5b | Image resolution? | **224 × 224**, horizontal FOV 69° (2026-11-02). |
+| Q7 | Obstacle models? | **Primitives: cube, box, wall, cylinder, sphere. No cones** (2026-11-02). USD models stay possible via `--obstacles`. |
 | — | Documentation language? | **English only.** |
 | Q13 | Is the GitHub repo public, or does Colab need a token? | **Public** (`github.com/X-Lemon-X/project_ai`), so Colab clones it without a token. Checked 2026-10-26. |

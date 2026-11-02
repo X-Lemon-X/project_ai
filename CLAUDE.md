@@ -47,7 +47,8 @@ perfect and the data generation runs unattended.
 | `nomad_r.usd` | The robot (default prim `/nomad_r_urdf`), with all its sensors |
 | `luxonis_oak_d_lite/` | OAK-D Lite camera assets used by the robot |
 | `isaac/` | Livox Mid-360 lidar config + helper script |
-| `data/scenes/` | Generated output: one `scene_XXXXX.json` per episode |
+| `check_dataset.py` | Checks a generated dataset (lidar vs geometry, contact sheets). Plain Python + numpy + Pillow |
+| `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |
 | `docs/` | Knowledge base (Markdown): facts, proposals, decisions, open questions. Start at `docs/README.md` |
 | `inbox/` | Drop zone for raw source documents. Git-ignored except `.gitignore` and `README.md` |
 | `notebooks/colab_smoke_test.ipynb` | Colab sanity check of the training pipeline on synthetic data (no Isaac Sim needed) |
@@ -64,33 +65,61 @@ Sensors (paths inside the robot file):
 - Lidar: `base_view/sensors_mount/lidar_livox_Mid360`
 - IMUs: `base_view/sensors_mount/imu_sensor`, `luxonis_oak_d_lite/imu_imu`
 
-Measured by `scene_gen.py`: footprint about **1.08 × 1.05 × 0.78 m**. The body
-centre sits at (−1.41, −0.85) relative to the robot's origin. The origin is
-0.25 m above the wheel bottoms. The script corrects for both offsets, so don't
-hard-code positions that assume the body is centred on the origin.
+Measured by `scene_gen.py`: size **1.07 × 1.05 × 0.78 m**. The robot file's
+root prim has its own transform ops (a translation and a **180° yaw**), and
+`XformCommonAPI` fails silently on them. `scene_gen.py` clears them
+(`ClearXformOpOrder`), takes the forward yaw from the camera's look direction,
+and offsets the pose so the body centre lands where it should and the wheels
+touch z = 0. Don't hard-code positions that assume the body is centred on
+the origin.
 
-The robot USD contains ROS 2 OmniGraph nodes. They are not needed for this
-project.
+The OAK-D `rgb_camera` in the USD has a 144° FOV (3.37 mm lens on a 20.95 mm
+aperture). The real camera has about 69°, which `scene_gen.py` sets by default
+(`--cam-fov`).
+
+The lidar's GMO azimuth 0° points **backwards**, and the first scan after a
+teleport is stale. Details are in `docs/knowledge/robot-and-sensors.md` and
+`docs/knowledge/simulator.md`.
+
+The robot USD contains ROS 2 OmniGraph nodes, joints and rigid bodies.
+`scene_gen.py` switches them off, because the robot is teleported, not
+simulated.
 
 ## Scene generator (`scene_gen.py`)
 
+Per **layout**: place 1–N obstacles on the road, then teleport the robot over
+an `nx × ny` grid (distance to the first obstacle × lateral position across
+road + shoulders). At every position it saves the OAK-D RGB image, a 2D lidar
+scan and the exact geometry. **No labels**: they are computed offline from
+the geometry.
+
 ```bash
 # Watch it in the GUI
-~/isaacsim/python.sh scene_gen.py --robot nomad_r.usd --num 20
+~/isaacsim/python.sh scene_gen.py --robot nomad_r.usd --num 3
 
-# Headless, with custom obstacle models
-~/isaacsim/python.sh scene_gen.py --robot nomad_r.usd --obstacles assets/obstacles --num 5000 --headless
+# Headless dataset (resumable: finished layouts are skipped)
+~/isaacsim/python.sh scene_gen.py --robot nomad_r.usd --num 1000 --headless --out data/grid
+
+# Check it (lidar vs geometry, contact sheets) - any Python with numpy + Pillow
+python check_dataset.py data/grid --sheets 3
 ```
 
 | Option | Meaning |
 |---|---|
 | `--robot` | Robot USD (required) |
-| `--robot-forward` | Which local axis of the robot faces forward: `+x` (default), `-x`, `+y`, `-y` |
-| `--obstacles` | Folder of obstacle `.usd/.usda/.usdc` files. Without it, random cubes, cylinders, cones and spheres are used |
-| `--max-obstacles` | Up to N obstacles per episode (default 3) |
-| `--num` | Number of episodes |
-| `--out` | Output folder for scene JSON (default `data/scenes`) |
-| `--seed` | RNG seed, for reproducible datasets |
+| `--num`, `--start` | Number of layouts, index of the first one (each layout has its own seed) |
+| `--min-obstacles`, `--max-obstacles` | Obstacles per layout (default 1–3) |
+| `--nx`, `--ny` | Grid size (default 5 × 5) |
+| `--near`, `--far` | Gap between robot front and first obstacle, closest / farthest grid row (default 1 / 10 m) |
+| `--shoulder` | Grass on each side of the road the robot may stand on (default 1.5 m) |
+| `--camera` | Camera prim (default OAK-D `rgb_camera`) |
+| `--resolution` | Square image size (default 224) |
+| `--cam-fov` | Camera FOV override in degrees (default 69; 0 = keep USD) |
+| `--lidar`, `--no-lidar` | Lidar prim, or skip lidar |
+| `--settle` | Renderer updates after each teleport (default 4) |
+| `--obstacles` | Folder of obstacle `.usd/.usda/.usdc` files instead of primitives (base at z = 0) |
+| `--out` | Output folder (default `data/grid`) |
+| `--seed` | Base RNG seed |
 | `--headless` | No window |
 
 **World conventions:**
@@ -98,38 +127,34 @@ project.
 - Z is up, units are metres.
 - The road runs along **+X** and is centred at the origin: 40 m long, 2 lanes of
   2 m each (`ROAD_LENGTH`, `LANE_WIDTH`, `NUM_LANES` at the top of the script).
-- Robot heading 0° means driving along +X. Each episode draws a random heading
-  of ±25°.
+- Robot heading is **fixed at 0°** (facing +X). "Left" = +Y.
 - The road, lane markings and grass are flat boxes. No road asset is needed.
 
-**Obstacles:** a fixed pool of prims is created once. Each episode hides all of
-them and then shows 0–N at random poses: ahead of the robot, on the road, and
-not overlapping the robot or each other (rejection sampling). Obstacle USD
-files should have their base at z = 0. Their footprint is assumed to be
-`USD_OBSTACLE_RADIUS`.
+**Obstacles:** cube, box, wall, cylinder or sphere (no cones), with random
+size, yaw and colour. They come from a fixed pool of prims that is hidden and
+re-shown for each layout. Footprints are stored as polygons.
 
-**Output, one JSON per episode:**
+**Output:**
 
-```json
-{
-  "robot":     {"center": [x, y], "heading_deg": h, "radius": r},
-  "obstacles": [{"kind": "cube", "pos": [x, y], "yaw_deg": a, "size": [sx, sy, sz], "radius": r}],
-  "road":      {"width": W, "lane_width": L, "length": D}
-}
+```
+data/grid/run.json                 # args, git version, camera / lidar / robot / road
+data/grid/layout_000123/
+  scene.json                       # obstacles (kind, pos, yaw, size, footprint polygon), grid, seed, ...
+  samples.jsonl                    # per image: robot_center, dist_ahead, nearest_obstacle, clearances, road_edge, in_fov
+  rgb/000.png                      # 224 x 224 RGB
+  lidar/000.npy                    # float32[360], 1 deg bins CCW from forward, range from body centre, inf = none
 ```
 
-`robot.center` is the robot's body centre, not its USD origin. `size` is
-`null` for obstacles loaded from USD files.
+Field meanings are in `docs/knowledge/scene-generator.md`.
 
 ## Next steps
 
-1. Capture an image from `camera_front` each episode and save it next to the JSON.
-2. Compute the label (left / straight / right) from the scene geometry:
-   - obstacle ahead in the robot's path → steer toward the free side
-   - drifted off the lane centre → steer back
-   - otherwise → straight
+1. Generate a first dataset (e.g. 1000 layouts ≈ 25 k images).
+2. Offline labeller (`label.py`, plain Python): pick the label scheme
+   (left / straight / right, F/B/L/R from a cost-to-go expert, or
+   regression) and compute it from `samples.jsonl` + `scene.json`.
 3. Train a small pretrained CNN (ResNet18 / MobileNet) in PyTorch.
-4. Closed-loop test: camera → model → wheel command, then measure success and
+4. Closed-loop test: camera → model → command, then measure success and
    collision rate on new random layouts.
 
 ## Knowledge base

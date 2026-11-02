@@ -2,6 +2,27 @@
 
 Newest first. One entry per decision: what, why, and where it is described.
 
+## 2026-11-02 — Grid sampling for the first dataset
+
+- **Grid sampling instead of expert rollouts** for the first dataset. Per
+  obstacle layout, the robot is teleported over an `nx × ny` grid (distance to
+  the obstacles × lateral position, road + shoulders) and every position is
+  captured. Why: it covers many robot positions around every obstacle, as
+  asked at the 2026-10-21 meeting, and needs no expert to generate. Expert
+  rollouts ([0002](proposals/0002-dataset-generation.md)) remain the plan for
+  sequence data. → [scene-generator](knowledge/scene-generator.md)
+- **No labels in the generator.** It saves exact geometry (robot pose,
+  obstacle footprints, distances) and labels are computed offline, so the
+  label scheme can change without re-rendering (as in
+  [0005](proposals/0005-control-vector.md#proposal)).
+- **Heading fixed at 0°** (answers Q2). Viewing angles on the obstacles come
+  from the robot's position, not from turning.
+- **Policy camera: OAK-D Lite `rgb_camera`**, replacing `camera_front`.
+  **224 × 224**, horizontal FOV overridden to 69° (the real camera's value; the
+  USD has 144°). → [robot-and-sensors](knowledge/robot-and-sensors.md#cameras)
+- **Obstacle shapes: cube, box, wall, cylinder, sphere. No cones** (answers Q7).
+- **Lidar recorded in the same pass** as a 360-bin 2D scan per image.
+
 ## 2026-10-26 — Answers on control, sensors, data
 
 - Left/right are **sideways moves with fixed heading**. Turning may be added
