@@ -89,6 +89,8 @@ Two Python environments:
 `check_dataset.py` (run before uploading anything):
 - episode count, success rate, rejected-layout rate
 - action distribution, overall and per road style
+- position coverage histogram (robot `y` vs nearest obstacle), see
+  [0002](0002-dataset-generation.md#things-to-monitor)
 - distance target ranges
 - lidar vs geometry agreement (catches frame/offset bugs)
 - a contact sheet PNG of random frames with labels drawn on them, for a
@@ -165,6 +167,14 @@ Colab notebook (`notebooks/colab_train.ipynb`) only does:
 4. `!python train.py ... --out /content/drive/MyDrive/project_ai/runs/...`
 
 All logic stays in `train.py`, so local and Colab runs can't drift apart.
+
+**Smoke test (exists):** [`notebooks/colab_smoke_test.ipynb`](../../notebooks/colab_smoke_test.ipynb)
+checks this stage before any real data exists. It covers GPU, Drive mount, repo
+clone, a synthetic dataset in the per-episode `.npz` format, the zip → Drive →
+unzip round trip, ResNet18 fine-tuning, checkpoint + resume from Drive, and
+TorchScript export. Open it in Colab and choose *Run all*. The last cell
+prints PASS/FAIL per check. Its training code is self-contained and is not
+yet the real `train.py`.
 
 Local training: the Isaac Sim machine already has an RTX GPU. Don't run
 `collect.py` and training at the same time unless VRAM allows.

@@ -201,6 +201,12 @@ adding variety (styles, layouts) before adding more of the same.
   accuracy.
 - Share of rejected (infeasible) layouts.
 - Share of frames where no obstacle is visible.
+- **Position coverage** (raised at the 2026-10-21 supervisor meeting, see
+  [log](../log.md)): a 2D histogram of the robot's lateral position `y`
+  against the distance to and lateral offset of the nearest obstacle.
+  Expert runs alone pass close to an ideal path. Empty regions (e.g. robot
+  close to an obstacle's side, robot on the shoulder) mean the perturbation
+  rate or start-position range is too small.
 
 ## Alternatives
 
