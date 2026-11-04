@@ -156,13 +156,12 @@ Field meanings are in `docs/knowledge/scene-generator.md`.
 
 ## Next steps
 
-1. Generate a first dataset (e.g. 1000 layouts ≈ 25 k images).
-2. Offline labeller (`label.py`, plain Python): pick the label scheme
-   (left / straight / right, F/B/L/R from a cost-to-go expert, or
-   regression) and compute it from `samples.jsonl` + `scene.json`.
-3. Train a small pretrained CNN (ResNet18 / MobileNet) in PyTorch.
-4. Closed-loop test: camera → model → command, then measure success and
-   collision rate on new random layouts.
+1. ~~Generate a first dataset~~: done, 1000 layouts = 25 k images in `data/grid/`.
+2. ~~Offline labeller~~: done, `label.py` (L / F / R from the cost-to-go expert).
+3. Train a small pretrained CNN: code done (`train.py`). Full ResNet18 and
+   small-CNN baseline runs are still to do.
+4. Closed-loop test (`drive.py`): camera → model → command, then measure
+   success and collision rate on new random layouts.
 
 ## Knowledge base
 

@@ -2,6 +2,30 @@
 
 Newest first. One entry per decision: what, why, and where it is described.
 
+## 2026-11-03 — Label scheme and first training setup
+
+- **Labels: 3 classes L / F / R** from the cost-to-go expert (answers Q14).
+  B is left out because the expert never chooses it on the grid data (0 of
+  25,000). The four costs are still stored, so F/B/L/R or soft labels need
+  only a relabel. → [training](knowledge/training.md#labels-labelpy)
+- **Tie-aware targets and metrics.** The target is uniform over the tied best
+  actions, and a prediction counts as correct if it is any of them. Why: an
+  obstacle dead ahead often makes L and R equally good, and forcing one would
+  give contradictory labels for mirror-image scenes.
+- **Main model: ImageNet ResNet18, fine-tuned**, with an auxiliary
+  distance-ahead head. A small CNN trained from scratch is the baseline. Why:
+  25,000 images from 1000 layouts is too little to train a large model from
+  scratch. Literature: auxiliary heads help behaviour cloning.
+- **Main score: balanced accuracy** (mean recall over L, F, R). Why: always
+  answering F already gives 86 % accuracy.
+- **Mirror augmentation with L ↔ R swapped.** The road and the camera are
+  left-right symmetric. No crops or shifts, because the lateral position in
+  the image is the signal.
+- **Package name `training/`** instead of `train/` from
+  [0006](proposals/0006-pipeline.md), so it can't be confused with `train.py`.
+- **PyTorch locally in the project venv `.venv`.** Isaac Sim's Python has no
+  torch.
+
 ## 2026-11-03 — Cost-to-go expert in `sim_core/`
 
 - **Geometry, world, expert and dataset loader are separate, simulator-free

@@ -135,7 +135,9 @@ so 25 samples per layout ≈ 6 s. `--no-lidar` is faster.
 ## Known limitations (as of 2026-11-02)
 
 - No feasibility check: some layouts block the whole road. That is fine for
-  grid sampling, but the offline labeller must handle it.
+  grid sampling. The labeller handles it: `label.py` marks such samples
+  `no_path` and lists infeasible layouts in `labels_meta.json`. On the first
+  1000 layouts there were none, because the robot can pass on the shoulder.
 - `in_fov` ignores occlusion between obstacles.
 - Road appearance, lighting and the camera pose are not randomized yet
   ([0002](../proposals/0002-dataset-generation.md#road-appearance-for-generalization)).

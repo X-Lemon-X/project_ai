@@ -2,6 +2,13 @@
 
 Status: draft · Date: 2026-10-26
 
+> **2026-11-03:** partly built for the grid dataset: `sim_core/` (geometry,
+> world, expert, loader), `label.py` and `train.py` + `training/` exist.
+> `collect.py`, `pack_dataset.py`, `drive.py`, the configs and the Colab
+> training notebook do not yet. The grid data is read directly from
+> `data/grid/`, not packed into `.npz` files. See [expert](../knowledge/expert.md)
+> and [training](../knowledge/training.md).
+
 ## Problem
 
 Data is produced in Isaac Sim, which needs a local RTX GPU and its own
@@ -41,7 +48,7 @@ flowchart LR
 | `sim_core/geometry.py`, `sim_core/expert.py` | anywhere | **no** | Point-mass model, collision checks, cost-to-go expert, distance targets. Pure NumPy. |
 | `check_dataset.py` | anywhere | no | Statistics, class balance, lidar vs geometry check, image contact sheet |
 | `pack_dataset.py` | anywhere | no | Pack episodes into shards, write `manifest.json` |
-| `train/dataset.py`, `train/models.py`, `train.py` | local / Colab | no | PyTorch dataset, models (CNN, stack, CNN+GRU), training loop |
+| `training/dataset.py`, `training/models.py`, `train.py` | local / Colab | no | PyTorch dataset, models (CNN, stack, CNN+GRU), training loop. **Built 2026-11-03** for single-frame grid data, as `training/` instead of `train/` (see [training](../knowledge/training.md)) |
 | `drive.py` | Isaac Sim | yes | Load exported model, drive closed loop, write metrics |
 | `configs/*.yaml` | — | — | Generation and training configs |
 | `notebooks/colab_train.ipynb` | Colab | no | Thin wrapper: mount storage, fetch data, call `train.py` |

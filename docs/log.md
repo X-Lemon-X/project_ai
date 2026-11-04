@@ -6,6 +6,36 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-03/04 — Labeller and training pipeline
+
+**Done**
+- Added `label.py`: runs the expert on all 25,000 samples in about 5 s (16
+  processes) and writes `labels.jsonl` + `labels_meta.json`. Result: all
+  samples are `ok` and no layout is infeasible. F 86 %, L 7 %, R 7 %, B 0, in
+  every split. 33 % of samples have ties.
+- Chose the label scheme (Q14): **3 classes L / F / R** from the expert, with
+  tie-aware targets. → [decisions](decisions.md)
+- Added `train.py` and `training/` (dataset, models, metrics): ResNet18
+  (pretrained) with an action head and a distance-ahead auxiliary head; also
+  MobileNetV3, EfficientNet-B0 and a from-scratch small CNN baseline. Uses
+  class weights, mirror augmentation with L ↔ R swapped, and a frozen first
+  epoch. Checkpoints, resume and TorchScript export.
+  → [training](knowledge/training.md)
+- Installed PyTorch 2.15 (CUDA 13.2) in the project venv `.venv`. Measured on
+  the RTX 5060 Laptop (8 GB): about 3 s per 1000 training images.
+- Smoke test (10 % of the layouts, 2 epochs): test bal_acc 0.74, no unsafe moves.
+- README: setup, `view_plan.py`, `label.py`, `train.py`, reading the
+  output, Colab.
+
+**Next**
+- Full runs: `resnet18` and the `smallcnn` baseline; record results in
+  [training](knowledge/training.md#results).
+- If L / R recall stays low: a longer `--lookahead`, or generate more rows
+  close to the obstacles.
+- Closed-loop test (`drive.py`).
+
+---
+
 ## 2026-11-03 — World model, expert and dataset loader
 
 **Done**
@@ -22,9 +52,8 @@ linked pages; this file is the short version.
 - Added `view_plan.py`, a top-down view of the cost map, decisions and paths.
 
 **Next**
-- `label.py`: write the labels (action, four costs, ties, 3-class label) for
-  all samples.
-- Choose `lookahead` and the label scheme (Q14).
+- ~~`label.py`: write the labels for all samples.~~ Done, see the entry above.
+- ~~Choose the label scheme (Q14).~~ Done: L / F / R. `lookahead` stays at 5 m for now.
 - Move the polygon functions of `scene_gen.py` to `sim_core/geometry.py`.
 
 ---
