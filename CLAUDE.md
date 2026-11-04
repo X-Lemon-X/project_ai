@@ -49,6 +49,12 @@ perfect and the data generation runs unattended.
 | `isaac/` | Livox Mid-360 lidar config + helper script |
 | `check_dataset.py` | Checks a generated dataset (lidar vs geometry, contact sheets). Plain Python + numpy + Pillow |
 | `view_lidar.py` | Interactive viewer: camera image next to a 3D view of the lidar scan and obstacles. Plain Python + matplotlib |
+| `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons, `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader. See `docs/knowledge/expert.md` |
+| `view_plan.py` | Top-down view of a layout: cost-to-go, blocked cells, expert decisions and paths. Plain Python + matplotlib |
+| `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
+| `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
+| `requirements-train.txt` | Python packages for labelling and training (not needed for Isaac Sim) |
+| `runs/` | Training runs (checkpoints, metrics, `model.ts`). Git-ignored |
 | `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |
 | `docs/` | Knowledge base (Markdown): facts, proposals, decisions, open questions. Start at `docs/README.md` |
 | `inbox/` | Drop zone for raw source documents. Git-ignored except `.gitignore` and `README.md` |

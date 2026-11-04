@@ -20,6 +20,8 @@ Knowledge
 - [Simulator (Isaac Sim)](knowledge/simulator.md)
 - [Robot and sensors](knowledge/robot-and-sensors.md)
 - [Scene generator](knowledge/scene-generator.md)
+- [World model, expert and dataset loader](knowledge/expert.md) (`sim_core/`)
+- [Labelling and training](knowledge/training.md) (`label.py`, `train.py`, `training/`)
 - [Literature](knowledge/literature.md): related papers and what they mean for us
 
 Proposals

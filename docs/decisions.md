@@ -2,6 +2,19 @@
 
 Newest first. One entry per decision: what, why, and where it is described.
 
+## 2026-11-03 — Cost-to-go expert in `sim_core/`
+
+- **Geometry, world, expert and dataset loader are separate, simulator-free
+  modules** in `sim_core/` (as planned in [0006](proposals/0006-pipeline.md)).
+  Why: the same code labels data offline, scores the network and runs the
+  closed-loop test. → [expert](knowledge/expert.md)
+- **Grid Dijkstra from the goal, actions F/B/L/R**, step costs 1 / 3 for
+  backward, with clearance and blocked-ahead penalties.
+- **Tie-break: F, then the side with more clearance (L if equal), then B.**
+- **Blocked-ahead penalty (5 m lookahead)** added because without it every
+  grid sample was labelled F (the expert dodged at the last moment).
+- Lane-centre penalty (Q6) is available but off by default.
+
 ## 2026-11-02 — Grid sampling for the first dataset
 
 - **Grid sampling instead of expert rollouts** for the first dataset. Per

@@ -6,6 +6,29 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-03 — World model, expert and dataset loader
+
+**Done**
+- Generated the first dataset: 1000 layouts, 25,000 samples in `data/grid/`.
+- Added `sim_core/`: polygon geometry, `World` + `Grid` from `scene.json`, a
+  Dijkstra cost-to-go `Expert` (best action F/B/L/R and the path to the goal
+  from any position), and the `GridDataset` loader with a split by layout.
+  → [expert](knowledge/expert.md)
+- Checked against the data: clearances match `samples.jsonl` exactly, all
+  1000 layouts are feasible, and all paths reach the goal.
+- Found that a plain shortest-path expert labels every grid sample F (it
+  dodges at the last moment). Added a blocked-ahead penalty. Now the two
+  nearest rows are about 35 % L/R, balanced between left and right.
+- Added `view_plan.py`, a top-down view of the cost map, decisions and paths.
+
+**Next**
+- `label.py`: write the labels (action, four costs, ties, 3-class label) for
+  all samples.
+- Choose `lookahead` and the label scheme (Q14).
+- Move the polygon functions of `scene_gen.py` to `sim_core/geometry.py`.
+
+---
+
 ## 2026-11-02 — Grid dataset generator with camera and lidar
 
 **Done**

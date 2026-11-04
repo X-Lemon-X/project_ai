@@ -1,0 +1,8 @@
+# Training (train.py, label.py, sim_core, viewers). Not needed for Isaac Sim scripts.
+# In Colab keep the preinstalled torch / torchvision: pip install -r requirements-train.txt
+torch
+torchvision
+numpy
+pillow
+matplotlib
+pyyaml
