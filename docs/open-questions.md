@@ -14,6 +14,7 @@ When a question is answered, write the answer next to it (or move it to
 | Q10 | Which road-marking styles to hold out for the generalization test set? | One centre-line style and one edge style never seen in training | 0002 |
 | Q11 | Where to host datasets: Google Drive, Hugging Face Hub, Kaggle? | Google Drive shared folder, zipped versions | 0006 |
 | Q12 | Local GPU model and VRAM? Decides whether training and Isaac Sim can run at once, and how many `collect.py` processes fit. | **GPU known: RTX 5060 Laptop, 8 GB** (2026-11-03). ResNet18 training at batch 64 fits. Whether Isaac Sim fits at the same time is not tested, so run one at a time | 0006 |
+| Q15 | Should the expert prefer the asphalt? Now it labels F on the grass shoulder whenever nothing is near, so the robot never returns to the road (remark 2026-11-07). | Not applied yet. Two options: switch on the existing lane-centre term (`label.py --lane`, Q6), or add a small off-road penalty for nodes off the asphalt. Either must stay small enough that dodging over the shoulder still wins when the road is blocked. Labels are offline, so trying it needs only `label.py` + retraining, no new data | expert, 0002 |
 
 ## Answered
 

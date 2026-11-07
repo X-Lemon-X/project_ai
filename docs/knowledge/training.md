@@ -82,4 +82,89 @@ Run outputs: `config.json`, `metrics.csv`, `best.pt`, `last.pt`,
 
 Smoke test (2026-11-03, `--subset 0.1 --epochs 2`, 2000 train images, RTX 5060
 Laptop, about 6 s per epoch): test acc 0.940, bal_acc 0.744 (recall L 0.60,
-F 1.00, R 0.64), unsafe 0, distance error 2.0 m. Full runs: to do.
+F 1.00, R 0.64), unsafe 0, distance error 2.0 m.
+
+### Full runs
+
+All on the first dataset (1000 layouts, labels from `label.py` with default
+settings), default `train.py` settings (12 epochs, batch 64). `*_001` runs use
+seed 0; `*_s1` / `*_s2` runs use `--seed 1` / `--seed 2` and `--workers 2 --preload`, which made the
+epochs about 25 % faster on Colab without changing the training itself.
+Metrics are on the **test** layouts 900–999 (2,500 images) for the epoch with
+the best validation balanced accuracy.
+
+| Run | Date | Where | Best epoch | acc | bal_acc | L | F | R | regret | unsafe | dist MAE |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `resnet18_001` | 2026-11-07 | Colab T4, ~100 s/epoch, 21 min | 11 / 11 | 0.990 | 0.959 | 0.96 | 1.00 | 0.92 | 0.0045 | 0 | 0.57 m |
+| `smallcnn_001` | 2026-11-07 | Colab T4, ~96 s/epoch, 19 min | 10 / 11 | 0.988 | 0.950 | 0.96 | 1.00 | 0.90 | 0.0055 | 0 | 0.56 m |
+| `resnet18_s1` | 2026-11-07 | Colab T4, ~75 s/epoch, 15 min | 10 / 11 | 0.990 | 0.956 | 0.94 | 1.00 | 0.92 | 0.0044 | 0.0004 | 0.60 m |
+| `smallcnn_s1` | 2026-11-07 | Colab T4, ~68 s/epoch, 14 min | 11 / 11 | 0.987 | 0.947 | 0.91 | 1.00 | 0.93 | 0.0059 | 0.0004 | 0.57 m |
+| `resnet18_s2` | 2026-11-07 | Colab T4, ~75 s/epoch, 15 min | 8 / 11 | 0.992 | 0.965 | 0.96 | 1.00 | 0.94 | 0.0043 | 0 | 0.63 m |
+| `smallcnn_s2` | 2026-11-07 | Colab T4, ~67 s/epoch, 14 min | 10 / 11 | 0.987 | 0.949 | 0.90 | 1.00 | 0.95 | 0.0065 | 0.0004 | 0.55 m |
+
+Over the three seeds (test, mean and min-max):
+
+| Model | bal_acc | recall L | recall R | acc | unsafe (per run) |
+|---|---|---|---|---|---|
+| ResNet18 (pretrained) | **0.960** (0.956-0.965) | 0.951 (0.944-0.955) | 0.929 (0.923-0.940) | 0.991 | 0, 0.0004, 0 |
+| Small CNN (from scratch) | **0.949** (0.947-0.950) | 0.923 (0.905-0.955) | 0.925 (0.896-0.945) | 0.987 | 0, 0.0004, 0.0004 |
+
+Unsafe 0.0004 = 1 of 2,500 images.
+
+`resnet18_001`:
+- Validation bal_acc: 0.788 after the frozen epoch 0, 0.939 after the first
+  full fine-tuning epoch, then slowly up to 0.974 at epoch 11. The best epoch
+  is the last one, so more epochs may still help a little.
+- Test confusion (rows = expert action after tie-break, columns = predicted L, F, R):
+  `[[170, 0, 8], [143, 1884, 112], [12, 2, 169]]`. Most off-diagonal entries
+  are ties (sideways as good as forward, or L = R with an obstacle dead
+  ahead), which the tie-aware acc counts as correct. Only about 25 of 2,500
+  predictions are not among the expert's best actions.
+- Limits: open-loop (per image), one seed, test layouts come from the same
+  generator with the same road look, lighting and camera. Closed-loop driving
+  (`drive.py`) and road-style generalization are not tested yet.
+
+`smallcnn_001` (5 conv blocks, random init):
+- Validation bal_acc 0.884 after epoch 0, 0.958 at the best epoch (10).
+- Test confusion: `[[170, 0, 8], [151, 1860, 128], [16, 3, 164]]`.
+
+![Learning curves, 3 seeds per model](../figures/2026-11-07_seeds_curves.png)
+
+![Test metrics, 3 seeds per model](../figures/2026-11-07_seeds_test.png)
+
+Figures from `plot_runs.py`. The small run files (`config.json`, `metrics.csv`,
+`test_metrics.json`) of each run are kept in [`docs/results/`](../results/):
+
+```bash
+python3 plot_runs.py docs/results/resnet18_{001,s1,s2} docs/results/smallcnn_{001,s1,s2} --out docs/figures --prefix 2026-11-07_seeds
+```
+
+Inference with `resnet18_001`'s `model.ts` on test layout 950 (one cube), all
+25 grid positions. Rows go from far (top, 10 m gap) to near (bottom, 1 m),
+columns from left to right across the road. A title in green means the
+prediction is one of the expert's best actions. All 25 are correct. Where the
+expert has a tie (F/L, F/R), the model splits about 50/50 between the two.
+
+![Inference on layout 950](../figures/2026-11-07_inference_layout950.png)
+
+On validation the final gap is similar (0.969 vs 0.959, mean of the last
+epoch). The small CNN's distance error is noisy in the first epochs (one run
+jumped to 5.3 m at epoch 2) but all runs end at about 0.55 m.
+
+**Comparison.** Over three seeds, the pretrained ResNet18 reaches test bal_acc
+0.960 and the from-scratch small CNN 0.949. The gap is small but
+**consistent**: every ResNet18 run beats every small-CNN run, and the
+small CNN's seeds lie within 0.003 of each other. Most of the gap is in
+recall L (0.951 vs 0.923). The small CNN is also less stable there between
+seeds (0.905-0.955). Both are equally safe (at most 1 unsafe prediction in 2,500
+images) and estimate distance equally well. Pretraining's clearer benefit is
+speed: about 0.94 val bal_acc after one fine-tuning epoch, which the small CNN
+reaches only after about 8. The images are simple and uniform (one road style,
+one lighting, plain-coloured obstacles), and the benchmark is close to
+saturated. To tell models apart, the data needs more
+visual variety, plus held-out styles
+([0002](../proposals/0002-dataset-generation.md#road-appearance-for-generalization)).
+
+Both runs took about the same time per epoch (~96–104 s) although ResNet18 is
+much heavier. On Colab (2 CPU cores) the PNG decoding limits the speed, not the
+GPU. `--workers 2 --preload` should help.

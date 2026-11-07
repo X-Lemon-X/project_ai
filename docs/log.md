@@ -6,6 +6,46 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-07 — First full training runs (ResNet18 and small CNN, Colab)
+
+**Done**
+- Got the dataset from the colleague (1000 layouts, 25,000 samples). Ran
+  `label.py` locally: the labels match the 2026-11-03/04 numbers exactly
+  (F 86 %, L 7 %, R 7 %, 8,315 ties, no infeasible layouts).
+- Trained `resnet18` (ImageNet-pretrained, default settings) on Colab with a
+  T4 GPU: 12 epochs, about 21 min.
+- Test result on 100 held-out layouts: tie-aware accuracy **0.990**, balanced
+  accuracy **0.959** (recall L 0.96, F 1.00, R 0.92), **no unsafe moves**,
+  distance-ahead error 0.57 m. Details →
+  [training results](knowledge/training.md#full-runs).
+- Trained the `smallcnn` baseline (from scratch) the same way: test balanced
+  accuracy **0.950** (L 0.96, F 1.00, R 0.90), accuracy 0.988, no unsafe
+  moves, distance error 0.56 m. That is practically the same as ResNet18, so
+  pretraining gives little on this visually uniform dataset.
+- Repeated both models with seeds 1 and 2. Over three seeds: ResNet18 test
+  balanced accuracy **0.960** (0.956-0.965), small CNN **0.949**
+  (0.947-0.950). Every ResNet18 run beats every small-CNN run, so the gap is
+  small but consistent. Most of it is in recall L. Unsafe predictions: at most
+  1 of 2,500 images per run.
+- Added `plot_runs.py` and the figures `docs/figures/2026-11-07_seeds_*.png`
+  (learning curves and test metrics, mean and min-max over the three seeds) for
+  the meeting.
+- Ran inference with the exported model on test layout 950 in Colab: all 25
+  images correct ([figure](figures/2026-11-07_inference_layout950.png)). Run
+  files are kept in `docs/results/`.
+
+**Caveats**
+- Open-loop (per image) only, one seed, and the test layouts share the road
+  look, lighting and camera of the training data.
+
+**Next**
+- Closed-loop test (`drive.py`).
+- Road-appearance randomization (line types), as discussed with the
+  supervisor on 2026-10-21. The current dataset is too uniform to tell
+  models apart.
+
+---
+
 ## 2026-11-03/04 — Labeller and training pipeline
 
 **Done**
