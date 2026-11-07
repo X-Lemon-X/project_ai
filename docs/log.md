@@ -22,6 +22,8 @@ linked pages; this file is the short version.
   accuracy **0.950** (L 0.96, F 1.00, R 0.90), accuracy 0.988, no unsafe
   moves, distance error 0.56 m. That is practically the same as ResNet18, so
   pretraining gives little on this visually uniform dataset.
+- Added `plot_runs.py` and the figures `docs/figures/2026-11-07_runs_*.png`
+  (learning curves, test metrics) for the meeting.
 
 **Caveats**
 - Open-loop (per image) only, one seed, and the test layouts share the road

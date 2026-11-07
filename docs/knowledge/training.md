@@ -113,6 +113,21 @@ the best validation balanced accuracy.
 - Validation bal_acc 0.884 after epoch 0, 0.958 at the best epoch (10).
 - Test confusion: `[[170, 0, 8], [151, 1860, 128], [16, 3, 164]]`.
 
+![Learning curves](../figures/2026-11-07_runs_curves.png)
+
+![Test metrics](../figures/2026-11-07_runs_test.png)
+
+Figures from `plot_runs.py` (copies of the run files are in `data/measurements/`):
+
+```bash
+python3 plot_runs.py data/measurements/resnet18_001 data/measurements/smallcnn_001 --out docs/figures --prefix 2026-11-07_runs
+```
+
+On validation the gap is larger (0.974 vs 0.958 at the best epochs) than on
+test. Both runs have the same distance-error bump at epoch 3. They share the
+seed, and therefore the batch order, so it most likely comes from the data
+order rather than from either model.
+
 **Comparison.** The from-scratch small CNN is within 0.01 bal_acc of the
 pretrained ResNet18 on test (0.950 vs 0.959), with the same safety (0 unsafe)
 and distance error. With one seed each, that gap is within run-to-run noise.
