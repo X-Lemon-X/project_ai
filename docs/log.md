@@ -24,6 +24,9 @@ linked pages; this file is the short version.
   pretraining gives little on this visually uniform dataset.
 - Added `plot_runs.py` and the figures `docs/figures/2026-11-07_runs_*.png`
   (learning curves, test metrics) for the meeting.
+- Ran inference with the exported model on test layout 950 in Colab: all 25
+  images correct ([figure](figures/2026-11-07_inference_layout950.png)). Run
+  files are kept in `docs/results/`.
 
 **Caveats**
 - Open-loop (per image) only, one seed, and the test layouts share the road

@@ -3,7 +3,7 @@
 Plain Python + matplotlib, no torch. Each run folder needs config.json, metrics.csv
 and test_metrics.json (copy them from Colab / Drive; checkpoints are not needed).
 
-    python3 plot_runs.py data/measurements/resnet18_001 data/measurements/smallcnn_001 --out docs/figures
+    python3 plot_runs.py docs/results/resnet18_001 docs/results/smallcnn_001 --out docs/figures
 
 Writes <out>/runs_curves.png and <out>/runs_test.png (use --prefix to change the names).
 """

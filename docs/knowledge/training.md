@@ -117,11 +117,20 @@ the best validation balanced accuracy.
 
 ![Test metrics](../figures/2026-11-07_runs_test.png)
 
-Figures from `plot_runs.py` (copies of the run files are in `data/measurements/`):
+Figures from `plot_runs.py`. The small run files (`config.json`, `metrics.csv`,
+`test_metrics.json`) of each run are kept in [`docs/results/`](../results/):
 
 ```bash
-python3 plot_runs.py data/measurements/resnet18_001 data/measurements/smallcnn_001 --out docs/figures --prefix 2026-11-07_runs
+python3 plot_runs.py docs/results/resnet18_001 docs/results/smallcnn_001 --out docs/figures --prefix 2026-11-07_runs
 ```
+
+Inference with `resnet18_001`'s `model.ts` on test layout 950 (one cube), all
+25 grid positions. Rows go from far (top, 10 m gap) to near (bottom, 1 m),
+columns from left to right across the road. A title in green means the
+prediction is one of the expert's best actions. All 25 are correct. Where the
+expert has a tie (F/L, F/R), the model splits about 50/50 between the two.
+
+![Inference on layout 950](../figures/2026-11-07_inference_layout950.png)
 
 On validation the gap is larger (0.974 vs 0.958 at the best epochs) than on
 test. Both runs have the same distance-error bump at epoch 3. They share the

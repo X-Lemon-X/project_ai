@@ -1,0 +1,95 @@
+{
+  "args": {
+    "data": "data/grid",
+    "labels": null,
+    "out": "/content/drive/MyDrive/runs/resnet18_001",
+    "model": "resnet18",
+    "no_pretrained": false,
+    "epochs": 12,
+    "freeze_epochs": 1,
+    "batch": 64,
+    "lr_head": 0.001,
+    "lr_backbone": 0.0001,
+    "weight_decay": 0.0001,
+    "warmup": 200,
+    "aux_weight": 0.5,
+    "class_weights": "balanced",
+    "soft_temp": 0.0,
+    "no_flip": false,
+    "jitter": 0.2,
+    "subset": 1.0,
+    "preload": false,
+    "workers": 8,
+    "no_amp": false,
+    "seed": 0,
+    "resume": false
+  },
+  "labels_meta": {
+    "dataset": "data/grid",
+    "labels": "labels.jsonl",
+    "layouts": 1000,
+    "samples": 25000,
+    "status": {
+      "ok": 25000
+    },
+    "ties": 8315,
+    "infeasible_layouts": [],
+    "costs": {
+      "backward": 3.0,
+      "clearance": 2.0,
+      "safe_dist": 0.5,
+      "ahead": 2.0,
+      "lookahead": 5.0,
+      "lane": 0.0
+    },
+    "grid": {
+      "cell": 0.2,
+      "margin": 0.1
+    },
+    "split": {
+      "train": [
+        0,
+        799
+      ],
+      "val": [
+        800,
+        899
+      ],
+      "test": [
+        900,
+        999
+      ]
+    },
+    "actions": {
+      "train": {
+        "F": 17196,
+        "L": 1385,
+        "R": 1419
+      },
+      "val": {
+        "F": 2156,
+        "L": 181,
+        "R": 163
+      },
+      "test": {
+        "F": 2139,
+        "L": 178,
+        "R": 183
+      }
+    },
+    "generator": "72de20d-dirty"
+  },
+  "classes": [
+    "L",
+    "F",
+    "R"
+  ],
+  "class_weights": [
+    2.171198606491089,
+    0.4810352325439453,
+    2.171198606491089
+  ],
+  "torch": "2.14.1+cu130",
+  "python": "3.13.16",
+  "gpu": "Tesla T4"
+}
