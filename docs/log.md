@@ -6,7 +6,7 @@ linked pages; this file is the short version.
 
 ---
 
-## 2026-11-07 — First full training run (ResNet18, Colab)
+## 2026-11-07 — First full training runs (ResNet18 and small CNN, Colab)
 
 **Done**
 - Got the dataset from the colleague (1000 layouts, 25,000 samples). Ran
@@ -18,16 +18,20 @@ linked pages; this file is the short version.
   accuracy **0.959** (recall L 0.96, F 1.00, R 0.92), **no unsafe moves**,
   distance-ahead error 0.57 m. Details →
   [training results](knowledge/training.md#full-runs).
+- Trained the `smallcnn` baseline (from scratch) the same way: test balanced
+  accuracy **0.950** (L 0.96, F 1.00, R 0.90), accuracy 0.988, no unsafe
+  moves, distance error 0.56 m. That is practically the same as ResNet18, so
+  pretraining gives little on this visually uniform dataset.
 
 **Caveats**
 - Open-loop (per image) only, one seed, and the test layouts share the road
   look, lighting and camera of the training data.
 
 **Next**
-- `smallcnn` baseline (from scratch) on Colab, for comparison.
 - Closed-loop test (`drive.py`).
 - Road-appearance randomization (line types), as discussed with the
-  supervisor on 2026-10-21.
+  supervisor on 2026-10-21. The current dataset is too uniform to tell
+  models apart.
 
 ---
 

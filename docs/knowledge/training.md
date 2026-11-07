@@ -94,7 +94,7 @@ the best validation balanced accuracy.
 | Run | Date | Where | Best epoch | acc | bal_acc | L | F | R | regret | unsafe | dist MAE |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `resnet18_001` | 2026-11-07 | Colab T4, ~100 s/epoch, 21 min | 11 / 11 | 0.990 | 0.959 | 0.96 | 1.00 | 0.92 | 0.0045 | 0 | 0.57 m |
-| `smallcnn_001` | | | | | | | | | | | |
+| `smallcnn_001` | 2026-11-07 | Colab T4, ~96 s/epoch, 19 min | 10 / 11 | 0.988 | 0.950 | 0.96 | 1.00 | 0.90 | 0.0055 | 0 | 0.56 m |
 
 `resnet18_001`:
 - Validation bal_acc: 0.788 after the frozen epoch 0, 0.939 after the first
@@ -108,3 +108,20 @@ the best validation balanced accuracy.
 - Limits: open-loop (per image), one seed, test layouts come from the same
   generator with the same road look, lighting and camera. Closed-loop driving
   (`drive.py`) and road-style generalization are not tested yet.
+
+`smallcnn_001` (5 conv blocks, random init):
+- Validation bal_acc 0.884 after epoch 0, 0.958 at the best epoch (10).
+- Test confusion: `[[170, 0, 8], [151, 1860, 128], [16, 3, 164]]`.
+
+**Comparison.** The from-scratch small CNN is within 0.01 bal_acc of the
+pretrained ResNet18 on test (0.950 vs 0.959), with the same safety (0 unsafe)
+and distance error. With one seed each, that gap is within run-to-run noise.
+So ImageNet pretraining buys little on this dataset. The images are simple
+and uniform (one road style, one lighting, plain-coloured obstacles), and the
+benchmark is close to saturated. To tell models apart, the data needs more
+visual variety, plus held-out styles
+([0002](../proposals/0002-dataset-generation.md#road-appearance-for-generalization)).
+
+Both runs took about the same time per epoch (~96–104 s) although ResNet18 is
+much heavier. On Colab (2 CPU cores) the PNG decoding limits the speed, not the
+GPU. `--workers 2 --preload` should help.
