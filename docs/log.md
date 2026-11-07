@@ -6,6 +6,31 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-07 — First full training run (ResNet18, Colab)
+
+**Done**
+- Got the dataset from the colleague (1000 layouts, 25,000 samples). Ran
+  `label.py` locally: the labels match the 2026-11-03/04 numbers exactly
+  (F 86 %, L 7 %, R 7 %, 8,315 ties, no infeasible layouts).
+- Trained `resnet18` (ImageNet-pretrained, default settings) on Colab with a
+  T4 GPU: 12 epochs, about 21 min.
+- Test result on 100 held-out layouts: tie-aware accuracy **0.990**, balanced
+  accuracy **0.959** (recall L 0.96, F 1.00, R 0.92), **no unsafe moves**,
+  distance-ahead error 0.57 m. Details →
+  [training results](knowledge/training.md#full-runs).
+
+**Caveats**
+- Open-loop (per image) only, one seed, and the test layouts share the road
+  look, lighting and camera of the training data.
+
+**Next**
+- `smallcnn` baseline (from scratch) on Colab, for comparison.
+- Closed-loop test (`drive.py`).
+- Road-appearance randomization (line types), as discussed with the
+  supervisor on 2026-10-21.
+
+---
+
 ## 2026-11-03/04 — Labeller and training pipeline
 
 **Done**

@@ -82,4 +82,29 @@ Run outputs: `config.json`, `metrics.csv`, `best.pt`, `last.pt`,
 
 Smoke test (2026-11-03, `--subset 0.1 --epochs 2`, 2000 train images, RTX 5060
 Laptop, about 6 s per epoch): test acc 0.940, bal_acc 0.744 (recall L 0.60,
-F 1.00, R 0.64), unsafe 0, distance error 2.0 m. Full runs: to do.
+F 1.00, R 0.64), unsafe 0, distance error 2.0 m.
+
+### Full runs
+
+All on the first dataset (1000 layouts, labels from `label.py` with default
+settings), default `train.py` settings (12 epochs, batch 64), one seed (0).
+Metrics are on the **test** layouts 900–999 (2,500 images) for the epoch with
+the best validation balanced accuracy.
+
+| Run | Date | Where | Best epoch | acc | bal_acc | L | F | R | regret | unsafe | dist MAE |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `resnet18_001` | 2026-11-07 | Colab T4, ~100 s/epoch, 21 min | 11 / 11 | 0.990 | 0.959 | 0.96 | 1.00 | 0.92 | 0.0045 | 0 | 0.57 m |
+| `smallcnn_001` | | | | | | | | | | | |
+
+`resnet18_001`:
+- Validation bal_acc: 0.788 after the frozen epoch 0, 0.939 after the first
+  full fine-tuning epoch, then slowly up to 0.974 at epoch 11. The best epoch
+  is the last one, so more epochs may still help a little.
+- Test confusion (rows = expert action after tie-break, columns = predicted L, F, R):
+  `[[170, 0, 8], [143, 1884, 112], [12, 2, 169]]`. Most off-diagonal entries
+  are ties (sideways as good as forward, or L = R with an obstacle dead
+  ahead), which the tie-aware acc counts as correct. Only about 25 of 2,500
+  predictions are not among the expert's best actions.
+- Limits: open-loop (per image), one seed, test layouts come from the same
+  generator with the same road look, lighting and camera. Closed-loop driving
+  (`drive.py`) and road-style generalization are not tested yet.
