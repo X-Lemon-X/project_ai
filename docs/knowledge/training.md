@@ -88,7 +88,7 @@ F 1.00, R 0.64), unsafe 0, distance error 2.0 m.
 
 All on the first dataset (1000 layouts, labels from `label.py` with default
 settings), default `train.py` settings (12 epochs, batch 64). `*_001` runs use
-seed 0; `*_s1` runs use `--seed 1` and `--workers 2 --preload`, which made the
+seed 0; `*_s1` / `*_s2` runs use `--seed 1` / `--seed 2` and `--workers 2 --preload`, which made the
 epochs about 25 % faster on Colab without changing the training itself.
 Metrics are on the **test** layouts 900–999 (2,500 images) for the epoch with
 the best validation balanced accuracy.
@@ -99,9 +99,17 @@ the best validation balanced accuracy.
 | `smallcnn_001` | 2026-11-07 | Colab T4, ~96 s/epoch, 19 min | 10 / 11 | 0.988 | 0.950 | 0.96 | 1.00 | 0.90 | 0.0055 | 0 | 0.56 m |
 | `resnet18_s1` | 2026-11-07 | Colab T4, ~75 s/epoch, 15 min | 10 / 11 | 0.990 | 0.956 | 0.94 | 1.00 | 0.92 | 0.0044 | 0.0004 | 0.60 m |
 | `smallcnn_s1` | 2026-11-07 | Colab T4, ~68 s/epoch, 14 min | 11 / 11 | 0.987 | 0.947 | 0.91 | 1.00 | 0.93 | 0.0059 | 0.0004 | 0.57 m |
+| `resnet18_s2` | 2026-11-07 | Colab T4, ~75 s/epoch, 15 min | 8 / 11 | 0.992 | 0.965 | 0.96 | 1.00 | 0.94 | 0.0043 | 0 | 0.63 m |
+| `smallcnn_s2` | 2026-11-07 | Colab T4, ~67 s/epoch, 14 min | 10 / 11 | 0.987 | 0.949 | 0.90 | 1.00 | 0.95 | 0.0065 | 0.0004 | 0.55 m |
 
-Mean over seeds 0 and 1 (test bal_acc): **ResNet18 0.958** (0.959, 0.956),
-**small CNN 0.949** (0.950, 0.947). Unsafe 0.0004 = 1 of 2,500 images.
+Over the three seeds (test, mean and min-max):
+
+| Model | bal_acc | recall L | recall R | acc | unsafe (per run) |
+|---|---|---|---|---|---|
+| ResNet18 (pretrained) | **0.960** (0.956-0.965) | 0.951 (0.944-0.955) | 0.929 (0.923-0.940) | 0.991 | 0, 0.0004, 0 |
+| Small CNN (from scratch) | **0.949** (0.947-0.950) | 0.923 (0.905-0.955) | 0.925 (0.896-0.945) | 0.987 | 0, 0.0004, 0.0004 |
+
+Unsafe 0.0004 = 1 of 2,500 images.
 
 `resnet18_001`:
 - Validation bal_acc: 0.788 after the frozen epoch 0, 0.939 after the first
@@ -120,15 +128,15 @@ Mean over seeds 0 and 1 (test bal_acc): **ResNet18 0.958** (0.959, 0.956),
 - Validation bal_acc 0.884 after epoch 0, 0.958 at the best epoch (10).
 - Test confusion: `[[170, 0, 8], [151, 1860, 128], [16, 3, 164]]`.
 
-![Learning curves](../figures/2026-11-07_runs_curves.png)
+![Learning curves, 3 seeds per model](../figures/2026-11-07_seeds_curves.png)
 
-![Test metrics](../figures/2026-11-07_runs_test.png)
+![Test metrics, 3 seeds per model](../figures/2026-11-07_seeds_test.png)
 
 Figures from `plot_runs.py`. The small run files (`config.json`, `metrics.csv`,
 `test_metrics.json`) of each run are kept in [`docs/results/`](../results/):
 
 ```bash
-python3 plot_runs.py docs/results/resnet18_001 docs/results/smallcnn_001 --out docs/figures --prefix 2026-11-07_runs
+python3 plot_runs.py docs/results/resnet18_{001,s1,s2} docs/results/smallcnn_{001,s1,s2} --out docs/figures --prefix 2026-11-07_seeds
 ```
 
 Inference with `resnet18_001`'s `model.ts` on test layout 950 (one cube), all
@@ -139,20 +147,21 @@ expert has a tie (F/L, F/R), the model splits about 50/50 between the two.
 
 ![Inference on layout 950](../figures/2026-11-07_inference_layout950.png)
 
-On validation the gap is larger (0.974 vs 0.958 at the best epochs) than on
-test. Both runs have the same distance-error bump at epoch 3. They share the
-seed, and therefore the batch order, so it most likely comes from the data
-order rather than from either model.
+On validation the final gap is similar (0.969 vs 0.959, mean of the last
+epoch). The small CNN's distance error is noisy in the first epochs (one run
+jumped to 5.3 m at epoch 2) but all runs end at about 0.55 m.
 
-**Comparison.** The from-scratch small CNN is within 0.01 bal_acc of the
-pretrained ResNet18 on test, with the same safety and distance error. With two
-seeds each, the gap is small but **consistent**: ResNet18 leads by 0.009 in
-both seeds, and the spread between seeds (0.003) is smaller than the gap. So
-pretraining gives a real but very small advantage here, and it learns much
-faster (0.94 val bal_acc after one fine-tuning epoch, against ~8 epochs for the
-small CNN). The images are simple and uniform (one road style, one lighting,
-plain-coloured obstacles), and the benchmark is close to saturated. To tell
-models apart, the data needs more
+**Comparison.** Over three seeds, the pretrained ResNet18 reaches test bal_acc
+0.960 and the from-scratch small CNN 0.949. The gap is small but
+**consistent**: every ResNet18 run beats every small-CNN run, and the
+small CNN's seeds lie within 0.003 of each other. Most of the gap is in
+recall L (0.951 vs 0.923). The small CNN is also less stable there between
+seeds (0.905-0.955). Both are equally safe (at most 1 unsafe prediction in 2,500
+images) and estimate distance equally well. Pretraining's clearer benefit is
+speed: about 0.94 val bal_acc after one fine-tuning epoch, which the small CNN
+reaches only after about 8. The images are simple and uniform (one road style,
+one lighting, plain-coloured obstacles), and the benchmark is close to
+saturated. To tell models apart, the data needs more
 visual variety, plus held-out styles
 ([0002](../proposals/0002-dataset-generation.md#road-appearance-for-generalization)).
 

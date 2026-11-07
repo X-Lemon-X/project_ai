@@ -22,11 +22,14 @@ linked pages; this file is the short version.
   accuracy **0.950** (L 0.96, F 1.00, R 0.90), accuracy 0.988, no unsafe
   moves, distance error 0.56 m. That is practically the same as ResNet18, so
   pretraining gives little on this visually uniform dataset.
-- Repeated both models with seed 1: ResNet18 0.956, small CNN 0.947 test
-  balanced accuracy. The 0.009 gap is the same as with seed 0, so it is small
-  but consistent. Each model had one unsafe prediction (1 of 2,500 images).
-- Added `plot_runs.py` and the figures `docs/figures/2026-11-07_runs_*.png`
-  (learning curves, test metrics) for the meeting.
+- Repeated both models with seeds 1 and 2. Over three seeds: ResNet18 test
+  balanced accuracy **0.960** (0.956-0.965), small CNN **0.949**
+  (0.947-0.950). Every ResNet18 run beats every small-CNN run, so the gap is
+  small but consistent. Most of it is in recall L. Unsafe predictions: at most
+  1 of 2,500 images per run.
+- Added `plot_runs.py` and the figures `docs/figures/2026-11-07_seeds_*.png`
+  (learning curves and test metrics, mean and min-max over the three seeds) for
+  the meeting.
 - Ran inference with the exported model on test layout 950 in Colab: all 25
   images correct ([figure](figures/2026-11-07_inference_layout950.png)). Run
   files are kept in `docs/results/`.
