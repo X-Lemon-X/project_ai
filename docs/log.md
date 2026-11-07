@@ -22,6 +22,9 @@ linked pages; this file is the short version.
   accuracy **0.950** (L 0.96, F 1.00, R 0.90), accuracy 0.988, no unsafe
   moves, distance error 0.56 m. That is practically the same as ResNet18, so
   pretraining gives little on this visually uniform dataset.
+- Repeated both models with seed 1: ResNet18 0.956, small CNN 0.947 test
+  balanced accuracy. The 0.009 gap is the same as with seed 0, so it is small
+  but consistent. Each model had one unsafe prediction (1 of 2,500 images).
 - Added `plot_runs.py` and the figures `docs/figures/2026-11-07_runs_*.png`
   (learning curves, test metrics) for the meeting.
 - Ran inference with the exported model on test layout 950 in Colab: all 25

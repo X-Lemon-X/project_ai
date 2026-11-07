@@ -87,7 +87,9 @@ F 1.00, R 0.64), unsafe 0, distance error 2.0 m.
 ### Full runs
 
 All on the first dataset (1000 layouts, labels from `label.py` with default
-settings), default `train.py` settings (12 epochs, batch 64), one seed (0).
+settings), default `train.py` settings (12 epochs, batch 64). `*_001` runs use
+seed 0; `*_s1` runs use `--seed 1` and `--workers 2 --preload`, which made the
+epochs about 25 % faster on Colab without changing the training itself.
 Metrics are on the **test** layouts 900–999 (2,500 images) for the epoch with
 the best validation balanced accuracy.
 
@@ -95,6 +97,11 @@ the best validation balanced accuracy.
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `resnet18_001` | 2026-11-07 | Colab T4, ~100 s/epoch, 21 min | 11 / 11 | 0.990 | 0.959 | 0.96 | 1.00 | 0.92 | 0.0045 | 0 | 0.57 m |
 | `smallcnn_001` | 2026-11-07 | Colab T4, ~96 s/epoch, 19 min | 10 / 11 | 0.988 | 0.950 | 0.96 | 1.00 | 0.90 | 0.0055 | 0 | 0.56 m |
+| `resnet18_s1` | 2026-11-07 | Colab T4, ~75 s/epoch, 15 min | 10 / 11 | 0.990 | 0.956 | 0.94 | 1.00 | 0.92 | 0.0044 | 0.0004 | 0.60 m |
+| `smallcnn_s1` | 2026-11-07 | Colab T4, ~68 s/epoch, 14 min | 11 / 11 | 0.987 | 0.947 | 0.91 | 1.00 | 0.93 | 0.0059 | 0.0004 | 0.57 m |
+
+Mean over seeds 0 and 1 (test bal_acc): **ResNet18 0.958** (0.959, 0.956),
+**small CNN 0.949** (0.950, 0.947). Unsafe 0.0004 = 1 of 2,500 images.
 
 `resnet18_001`:
 - Validation bal_acc: 0.788 after the frozen epoch 0, 0.939 after the first
@@ -138,11 +145,14 @@ seed, and therefore the batch order, so it most likely comes from the data
 order rather than from either model.
 
 **Comparison.** The from-scratch small CNN is within 0.01 bal_acc of the
-pretrained ResNet18 on test (0.950 vs 0.959), with the same safety (0 unsafe)
-and distance error. With one seed each, that gap is within run-to-run noise.
-So ImageNet pretraining buys little on this dataset. The images are simple
-and uniform (one road style, one lighting, plain-coloured obstacles), and the
-benchmark is close to saturated. To tell models apart, the data needs more
+pretrained ResNet18 on test, with the same safety and distance error. With two
+seeds each, the gap is small but **consistent**: ResNet18 leads by 0.009 in
+both seeds, and the spread between seeds (0.003) is smaller than the gap. So
+pretraining gives a real but very small advantage here, and it learns much
+faster (0.94 val bal_acc after one fine-tuning epoch, against ~8 epochs for the
+small CNN). The images are simple and uniform (one road style, one lighting,
+plain-coloured obstacles), and the benchmark is close to saturated. To tell
+models apart, the data needs more
 visual variety, plus held-out styles
 ([0002](../proposals/0002-dataset-generation.md#road-appearance-for-generalization)).
 
