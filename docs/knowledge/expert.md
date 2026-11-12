@@ -7,7 +7,7 @@ and of closed-loop scoring.
 
 | File | Contents |
 |---|---|
-| `sim_core/geometry.py` | Convex-polygon math: rectangles, circles, convex hull, Minkowski growth by the robot rectangle, point-in-polygon, point-to-polygon distance (vectorised) |
+| `sim_core/geometry.py` | Convex-polygon math: rectangles, circles, convex hull, Minkowski growth by the robot rectangle, point-in-polygon, point-to-polygon distance (vectorised). Also the plain-Python polygon-vs-polygon functions the generator uses (`clearance`, `clip_band`, `polygons_overlap`, `centroid`) |
 | `sim_core/world.py` | `World` (road, corridor, robot, obstacles, read from `scene.json`) and `Grid` (lattice of robot positions with clearance, occupancy and free distance ahead) |
 | `sim_core/expert.py` | `Expert`: Dijkstra cost-to-go, `decide(x, y)` → best action + all four costs, `path(x, y)` → path to the goal |
 | `sim_core/dataset.py` | `GridDataset` / `Layout` / `Sample`: lazy loader for `data/grid/` |
@@ -93,8 +93,6 @@ Grid and Dijkstra take ≈ 38 ms per layout (pure Python heap). Labelling all
 
 ## Known limitations
 
-- `scene_gen.py` still has its own copy of the polygon functions. They give
-  the same numbers, but they should be merged into `sim_core/geometry.py`.
 - Decisions at positions between nodes are rounded to the nearest node
   (`Decision.snap` tells how far). This doesn't apply to grid samples.
 - One step = one grid spacing (≈ 0.19 m), not exactly the 0.2 m of 0001.

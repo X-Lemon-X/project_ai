@@ -43,13 +43,14 @@ perfect and the data generation runs unattended.
 
 | Path | What it is |
 |---|---|
-| `scene_gen.py` | Builds the road scene, places random obstacles per layout and captures camera + lidar over a grid of robot positions |
+| `scene_gen.py` | Dataset generator: places random obstacles per layout and captures camera + lidar over a grid of robot positions. Uses `isaac_scene.py` |
+| `isaac_scene.py` | Isaac Sim scene shared by `scene_gen.py` and the planned `drive.py`: road, robot, obstacle pool, camera, lidar. Import only after creating `SimulationApp` |
 | `nomad_r.usd` | The robot (default prim `/nomad_r_urdf`), with all its sensors |
 | `luxonis_oak_d_lite/` | OAK-D Lite camera assets used by the robot |
 | `isaac/` | Livox Mid-360 lidar config + helper script |
 | `check_dataset.py` | Checks a generated dataset (lidar vs geometry, contact sheets). Plain Python + numpy + Pillow |
 | `view_lidar.py` | Interactive viewer: camera image next to a 3D view of the lidar scan and obstacles. Plain Python + matplotlib |
-| `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons, `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader. See `docs/knowledge/expert.md` |
+| `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons (also used by the generator), `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader. See `docs/knowledge/expert.md` |
 | `view_plan.py` | Top-down view of a layout: cost-to-go, blocked cells, expert decisions and paths. Plain Python + matplotlib |
 | `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
 | `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
@@ -134,7 +135,7 @@ python check_dataset.py data/grid --sheets 3
 
 - Z is up, units are metres.
 - The road runs along **+X** and is centred at the origin: 40 m long, 2 lanes of
-  2 m each (`ROAD_LENGTH`, `LANE_WIDTH`, `NUM_LANES` at the top of the script).
+  2 m each (`ROAD_LENGTH`, `LANE_WIDTH`, `NUM_LANES` at the top of `isaac_scene.py`).
 - Robot heading is **fixed at 0°** (facing +X). "Left" = +Y.
 - The road, lane markings and grass are flat boxes. No road asset is needed.
 
@@ -178,7 +179,8 @@ Field meanings are in `docs/knowledge/scene-generator.md`.
 
 ## Notes for contributors
 
-- Keep scene/geometry logic in `scene_gen.py` and training code separate
-  (planned: `train.py`, `drive.py`).
+- Isaac Sim scene code goes in `isaac_scene.py`, 2D geometry and the expert in
+  `sim_core/` (no Isaac imports), training code in `train.py` / `training/`.
+  `scene_gen.py` and the planned `drive.py` are thin scripts on top of them.
 - Don't commit generated data (`data/`) or large binaries without Git LFS.
   `nomad_r.usd` is about 76 MB.

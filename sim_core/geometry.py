@@ -26,14 +26,64 @@ def rect_poly(cx, cy, sx, sy, yaw_deg=0.0):
 
 
 def circle_poly(cx, cy, r, sides=CIRCLE_SIDES):
-    """Regular polygon circumscribing the circle, so it covers the circle."""
+    """Regular polygon circumscribing the circle, so it covers the circle.
+
+    Computed vertex by vertex with `math`, exactly as scene_gen.py always did, so
+    regenerated layouts are bit-identical.
+    """
     r /= math.cos(math.pi / sides)
-    a = 2 * math.pi * np.arange(sides) / sides
-    return np.stack([cx + r * np.cos(a), cy + r * np.sin(a)], axis=1)
+    return np.array([(cx + r * math.cos(2 * math.pi * k / sides), cy + r * math.sin(2 * math.pi * k / sides))
+                     for k in range(sides)])
 
 
 def centroid(poly):
-    return np.asarray(poly, dtype=float).mean(axis=0)
+    """Vertex mean (x, y) as plain floats."""
+    return sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly)
+
+
+# ---------------------------------------------------------------- polygon vs polygon (plain Python)
+# Used by scene_gen.py to place obstacles and to compute the per-sample geometry.
+
+def _point_seg_dist(p, a, b):
+    abx, aby = b[0] - a[0], b[1] - a[1]
+    t = ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / (abx * abx + aby * aby or 1e-12)
+    t = max(0.0, min(1.0, t))
+    return math.hypot(p[0] - a[0] - t * abx, p[1] - a[1] - t * aby)
+
+
+def polygons_overlap(a, b):
+    """Separating axis test for two convex polygons."""
+    for poly in (a, b):
+        for i in range(len(poly)):
+            (x1, y1), (x2, y2) = poly[i - 1], poly[i]
+            nx, ny = y2 - y1, x1 - x2
+            pa = [nx * x + ny * y for x, y in a]
+            pb = [nx * x + ny * y for x, y in b]
+            if max(pa) < min(pb) or max(pb) < min(pa):
+                return False
+    return True
+
+
+def clearance(a, b):
+    """Distance between two convex polygons, 0 if they touch."""
+    if polygons_overlap(a, b):
+        return 0.0
+    return min(min(_point_seg_dist(p, q[i - 1], q[i]) for p in s for i in range(len(q))) for s, q in ((a, b), (b, a)))
+
+
+def clip_band(poly, ylo, yhi):
+    """Part of a convex polygon with ylo <= y <= yhi (Sutherland-Hodgman)."""
+    def clip(pts, keep, y):
+        out = []
+        for i, p in enumerate(pts):
+            q = pts[i - 1]
+            if keep(p) != keep(q):
+                out.append((q[0] + (p[0] - q[0]) * (y - q[1]) / (p[1] - q[1]), y))
+            if keep(p):
+                out.append(p)
+        return out
+    pts = clip([tuple(p) for p in poly], lambda p: p[1] >= ylo, ylo)
+    return clip(pts, lambda p: p[1] <= yhi, yhi) if pts else []
 
 
 def convex_hull(points):

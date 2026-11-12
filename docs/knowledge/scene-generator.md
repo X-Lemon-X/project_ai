@@ -9,12 +9,28 @@ the saved geometry (decided 2026-11-02, see [decisions](../decisions.md)).
 
 Usage and options are listed in the root `CLAUDE.md`.
 
+## Code structure (since 2026-11-09)
+
+| File | Contents |
+|---|---|
+| `isaac_scene.py` | Everything in Isaac Sim: road, lights, robot loading and measuring, obstacle pool and `place_obstacles`, camera, `LidarScan`. Shared with the planned closed-loop test `drive.py`, so both use exactly the same scene. Import it only after creating the `SimulationApp` |
+| `sim_core/geometry.py` | 2D footprint math: `rect_poly`, `circle_poly`, `clearance`, `clip_band`, `centroid` (no Isaac imports) |
+| `scene_gen.py` | Arguments, the robot grid (`grid_positions`), the per-sample geometry (`sample_geometry`) and writing the output |
+
+A layout depends only on its seed: `place_obstacles` draws shape, size, pose
+and colour from `random.Random(seed)`. Any script that calls it with the same
+seed gets the same layout.
+
+The split moved code without changing it. **Not verified yet:** a comparison
+of the old and the new generator on the same layouts (see
+[log](../log.md)).
+
 ## World frame
 
 - Z up, metres.
 - Road along **+X**, centred at the origin: 40 m long (x ∈ [−20, 20]),
   2 lanes × 2 m (y ∈ [−2, 2]). Constants `ROAD_LENGTH`, `LANE_WIDTH`,
-  `NUM_LANES` at the top of the script.
+  `NUM_LANES` at the top of `isaac_scene.py`.
 - Drivable corridor = road + `--shoulder` (default 1.5 m) of grass on each
   side, so y ∈ [−3.5, 3.5].
 - Heading is **fixed at 0°**: the robot always faces +X. "Left" = +Y.

@@ -6,6 +6,39 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-09 — Shared Isaac Sim scene module (start of the closed-loop test)
+
+**Done**
+- Local full run: ResNet18, 20 epochs, seed 0, on the RTX 5060 Laptop at about
+  22 s per epoch (Colab T4: 75–100 s). Test bal_acc 0.965, unsafe 0, best
+  epoch 9. Epochs after 9 didn't help. It's in `runs/smoke/` (a misleading
+  name, because it overwrote the 2-epoch smoke test).
+- Checked that Isaac Sim's bundled PyTorch (2.11, in
+  `extsDeprecated/omni.isaac.ml_archive/pip_prebundle`) loads `model.ts`
+  exported with torch 2.15: 1.3 ms per image on the GPU, 7.6 ms on CPU. So
+  `drive.py` can run the network inside Isaac Sim, with no second process.
+- Split `scene_gen.py`, so the closed-loop test uses exactly the training scene:
+  - `isaac_scene.py` (new): road, robot, obstacle pool, camera and lidar.
+    Code moved unchanged; settings that came from global `args` are now
+    parameters.
+  - `sim_core/geometry.py`: took over the generator's polygon functions
+    (`clearance`, `clip_band`, `polygons_overlap`). `circle_poly` and
+    `centroid` now compute exactly as the generator did.
+  - `scene_gen.py`: argument parsing, the grid, the per-sample geometry and
+    writing the output. Its options and output format are unchanged.
+- **Not verified yet:** the check that the refactored generator writes the
+  same layouts as before (2 layouts rendered with the old and the new code,
+  then compared) was interrupted.
+
+**Next**
+- Run that check: old `scene_gen.py` from git vs the new one, comparing
+  `scene.json`, `samples.jsonl`, images and lidar.
+- `drive.py`: closed-loop test. Policies: network / expert / always-forward.
+  Start at x = −17 m, step ≈ 0.2 m, goal x = 18 m. Fail on collision, on
+  leaving the corridor, or on timeout. New layout seeds.
+
+---
+
 ## 2026-11-07 — First full training runs (ResNet18 and small CNN, Colab)
 
 **Done**
@@ -94,7 +127,8 @@ linked pages; this file is the short version.
 **Next**
 - ~~`label.py`: write the labels for all samples.~~ Done, see the entry above.
 - ~~Choose the label scheme (Q14).~~ Done: L / F / R. `lookahead` stays at 5 m for now.
-- Move the polygon functions of `scene_gen.py` to `sim_core/geometry.py`.
+- ~~Move the polygon functions of `scene_gen.py` to `sim_core/geometry.py`.~~
+  Done 2026-11-09, see the entry above.
 
 ---
 
