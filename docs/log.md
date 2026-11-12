@@ -6,6 +6,38 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-12 — Closed-loop test `drive.py`
+
+**Done**
+- `drive.py`: drives the robot in the training scene (`isaac_scene.py`) on
+  layouts outside the dataset (seeds from 100000). Each step: camera image →
+  policy → one F / L / R teleport step. The episode ends on success
+  (x ≥ 18 m), collision (checked every 2 cm along the step), leaving road +
+  shoulders, or timeout. Policies: `net` (TorchScript `model.ts`), `expert`,
+  `forward`. Step sizes are options: `--step`, `--side-step`,
+  `--side-forward`.
+- PyTorch is loaded from Isaac Sim's `omni.isaac.ml_archive/pip_prebundle`.
+- Exported `runs/smoke/model.ts` from `best.pt` (epoch 7, val bal_acc 0.963).
+  The run in `runs/smoke/` stopped at epoch 7, so it had no `model.ts`.
+- First test, 3 layouts (100000–100002), 0.2 m steps, goal x = 18 m:
+  - pure sideways steps: net 1/3 success, 2 timeouts (stuck alternating
+    L/R in place: once at x = 16.6 m, past all obstacles and close to the road end,
+    once at x = −5.4 m in front of them); expert 3/3; forward 1/3 (2 collisions).
+  - `--side-forward 0.1`: net 3/3 success, min clearance 0.23 m.
+- Changed the goal: success once the robot's rear is `--goal-after` (1 m) past
+  the last obstacle (`--goal-x` 18 m stays the upper limit). Near the road end
+  the camera sees grass and the road edge, which never appeared in the training data, and
+  the network kept moving sideways there. Same 3 layouts, pure sideways steps: net 2/3
+  (the stop in front of the obstacles in layout 100002 remains), expert 3/3, forward 1/3.
+
+**Next**
+- Full evaluation (≥ 100 layouts) of the ResNet18 and small-CNN runs, with
+  and without `--side-forward`.
+- The L/R oscillation is the expected weakness of a memoryless classifier;
+  candidates: diagonal moves, action smoothing, DAgger on the visited states.
+
+---
+
 ## 2026-11-09 — Shared Isaac Sim scene module (start of the closed-loop test)
 
 **Done**

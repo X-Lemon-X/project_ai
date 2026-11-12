@@ -12,6 +12,7 @@ details are in [CLAUDE.md](CLAUDE.md), and plans and decisions are in [docs/](do
 | 3. Plan | `view_plan.py` | Python | Shows the expert's best move and path for each robot position |
 | 4. Label | `label.py` | Python | Writes the correct move (left / forward / right) for every image |
 | 5. Train | `train.py` | Python + PyTorch, GPU recommended | Trains the network that picks the move from the camera image |
+| 6. Drive | `drive.py` | Isaac Sim + RTX GPU | The trained network drives the robot past new obstacles; scores how often it gets through |
 
 Steps 2–5 don't need Isaac Sim. They run on any computer, and step 5 also runs in Colab.
 
@@ -287,3 +288,67 @@ drive.mount("/content/drive")
 Colab already has PyTorch, so nothing needs to be installed. Writing `--out` to
 Drive keeps the checkpoints if Colab disconnects. Then start the same command
 again with `--resume`.
+
+## Driving with the trained model (`drive.py`)
+
+The trained network drives the robot in Isaac Sim. At every step the robot takes a
+camera image, the network picks L, F or R, and the robot moves one step. The obstacle
+layouts are new ones that were not in the dataset (layout numbers start at 100000).
+It needs Isaac Sim, so run it with Isaac Sim's Python:
+
+```bash
+~/isaacsim/python.sh drive.py --model runs/smoke/model.ts --count 40 --delay 0.01 \
+    --min-obstacles 2 --max-obstacles 4 --side-step 0.05
+```
+
+This example works well. It opens the Isaac Sim window and drives through 40 layouts
+with 2–4 obstacles each. It pauses 0.01 s per step so you can follow it, and each
+sideways step moves only 5 cm, which makes the dodging smoother.
+
+Each drive (called an episode) starts at x = −17 m. It ends as:
+
+- **success**: the robot's rear is 1 m past the last obstacle (`--goal-after`)
+- **collision**: the robot touched an obstacle
+- **off_road**: the robot left the road and the grass beside it
+- **timeout**: the step limit ran out, for example because the robot kept switching
+  between L and R in one place
+
+| Option | Default | Meaning |
+|---|---|---|
+| `--model` | | `model.ts` from a training run |
+| `--count` | 10 | Number of layouts to drive |
+| `--start` | 100000 | Number of the first layout. Keep it above 999, so the layouts are new |
+| `--min-obstacles`, `--max-obstacles` | 1, 3 | Obstacles per layout |
+| `--step` | 0.2 | How far one F step moves the robot forward, in metres |
+| `--side-step` | 0.2 | How far one L or R step moves the robot sideways, in metres |
+| `--side-forward` | 0 | How far an L or R step also moves the robot forward. 0.1 stops it getting stuck switching between L and R |
+| `--policy` | `net` | What drives: `net` (the network), `expert` (the planner, a best case) or `forward` (always F, a worst case). Give several to compare them on the same layouts |
+| `--delay` | 0 | Pause after each step, in seconds, to watch it |
+| `--save-frames` | | Also save every camera image |
+| `--headless` | | No window (faster) |
+| `--out` | `<model folder>/drive` | Where the results go |
+
+To compare the network with the two baselines on 100 layouts, without a window:
+
+```bash
+~/isaacsim/python.sh drive.py --model runs/smoke/model.ts --policy net expert forward --count 100 --headless
+```
+
+At the end it prints one line per policy (success, collision, off-road and timeout
+rates) and writes these files to the output folder:
+
+| File | What it is |
+|---|---|
+| `eval.json` | Settings and the summary for each policy |
+| `episodes.jsonl` | One line per layout and policy: the result, the path driven, every move and the obstacles |
+
+If the run folder has no `model.ts` (because training stopped before the end),
+export one from `best.pt`:
+
+```bash
+.venv/bin/python -c "
+import torch; from training.models import build_model
+ck = torch.load('runs/smoke/best.pt', map_location='cpu', weights_only=False)
+m = build_model(ck['config']['args']['model'], pretrained=False); m.load_state_dict(ck['model']); m.eval()
+torch.jit.trace(m, torch.rand(1, 3, 224, 224)).save('runs/smoke/model.ts')"
+```

@@ -44,7 +44,8 @@ perfect and the data generation runs unattended.
 | Path | What it is |
 |---|---|
 | `scene_gen.py` | Dataset generator: places random obstacles per layout and captures camera + lidar over a grid of robot positions. Uses `isaac_scene.py` |
-| `isaac_scene.py` | Isaac Sim scene shared by `scene_gen.py` and the planned `drive.py`: road, robot, obstacle pool, camera, lidar. Import only after creating `SimulationApp` |
+| `isaac_scene.py` | Isaac Sim scene shared by `scene_gen.py` and `drive.py`: road, robot, obstacle pool, camera, lidar. Import only after creating `SimulationApp` |
+| `drive.py` | Closed-loop test in Isaac Sim: camera → policy (`net` = `model.ts`, `expert`, `forward`) → F/L/R step, on unseen layouts (default from 100000). Writes `<model dir>/drive/eval.json` + `episodes.jsonl` |
 | `nomad_r.usd` | The robot (default prim `/nomad_r_urdf`), with all its sensors |
 | `luxonis_oak_d_lite/` | OAK-D Lite camera assets used by the robot |
 | `isaac/` | Livox Mid-360 lidar config + helper script |
@@ -162,8 +163,23 @@ Field meanings are in `docs/knowledge/scene-generator.md`.
 2. ~~Offline labeller~~: done, `label.py` (L / F / R from the cost-to-go expert).
 3. Train a small pretrained CNN: code done (`train.py`). Full ResNet18 and
    small-CNN baseline runs are still to do.
-4. Closed-loop test (`drive.py`): camera → model → command, then measure
-   success and collision rate on new random layouts.
+4. Closed-loop test (`drive.py`): code done. Run a full evaluation of the
+   trained models against the expert and always-forward baselines.
+
+```bash
+# Watch the network drive (GUI), 0.1 s pause per step
+~/isaacsim/python.sh drive.py --model runs/smoke/model.ts --count 3 --delay 0.1
+# Evaluate all three policies on the same 100 unseen layouts
+~/isaacsim/python.sh drive.py --model runs/smoke/model.ts --policy net expert forward --count 100 --headless
+```
+
+Step size: `--step` (forward per F, default 0.2 m), `--side-step` (sideways per
+L/R, default 0.2 m), `--side-forward` (forward part of an L/R step, default 0 =
+pure sideways as in the expert's labels). An episode succeeds when the robot's
+rear is `--goal-after` (1 m) past the last obstacle, because near the road end
+the camera sees scenes that were never in the training data. With pure sideways steps the network
+can still get stuck alternating L/R in place (it has no memory); `--side-forward 0.1`
+avoided that in a first test.
 
 ## Knowledge base
 
@@ -181,6 +197,6 @@ Field meanings are in `docs/knowledge/scene-generator.md`.
 
 - Isaac Sim scene code goes in `isaac_scene.py`, 2D geometry and the expert in
   `sim_core/` (no Isaac imports), training code in `train.py` / `training/`.
-  `scene_gen.py` and the planned `drive.py` are thin scripts on top of them.
+  `scene_gen.py` and `drive.py` are thin scripts on top of them.
 - Don't commit generated data (`data/`) or large binaries without Git LFS.
   `nomad_r.usd` is about 76 MB.
