@@ -51,11 +51,12 @@ perfect and the data generation runs unattended.
 | `isaac/` | Livox Mid-360 lidar config + helper script |
 | `check_dataset.py` | Checks a generated dataset (lidar vs geometry, contact sheets). Plain Python + numpy + Pillow |
 | `view_lidar.py` | Interactive viewer: camera image next to a 3D view of the lidar scan and obstacles. Plain Python + matplotlib |
-| `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons (also used by the generator), `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader. See `docs/knowledge/expert.md` |
+| `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons (also used by the generator), `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader, `motion.py` action → move (discrete or low-pass-filtered direction). See `docs/knowledge/expert.md` |
 | `view_plan.py` | Top-down view of a layout: cost-to-go, blocked cells, expert decisions and paths. Plain Python + matplotlib |
 | `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
 | `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
 | `plot_runs.py` | Plots runs (learning curves, test metrics) from `config.json`, `metrics.csv`, `test_metrics.json`. Plain Python + matplotlib |
+| `tests/` | Checks of simulator-free code: `python tests/test_motion.py` |
 | `requirements-train.txt` | Python packages for labelling and training (not needed for Isaac Sim) |
 | `runs/` | Training runs (checkpoints, metrics, `model.ts`). Git-ignored |
 | `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |
@@ -180,6 +181,13 @@ rear is `--goal-after` (1 m) past the last obstacle, because near the road end
 the camera sees scenes that were never in the training data. With pure sideways steps the network
 can still get stuck alternating L/R in place (it has no memory); `--side-forward 0.1`
 avoided that in a first test.
+
+`--filter-alpha a` switches to filtered motion: each decision is a direction
+(F = 0, L = +π/2, R = −π/2), smoothed by a first-order IIR low-pass filter
+(`angle = a·angle + (1−a)·target`, reset to 0 per episode), and the robot moves
+`--step` along the filtered direction. Mixed decisions give diagonal moves, and the
+filter's memory damps L/R alternation. `a = 0` means no smoothing; the time constant
+is about `−1/ln a` steps (a = 0.7 ≈ 3 steps). The expert's rare B stays a plain backward step.
 
 ## Knowledge base
 

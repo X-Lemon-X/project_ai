@@ -18,6 +18,10 @@ Moves (heading stays 0 deg, point-mass model as in sim_core/expert.py):
     F = (+step, 0)   L = (+side_forward, +side_step)   R = (+side_forward, -side_step)
     B = (-step, 0)   (only the expert uses B)
 
+With --filter-alpha the actions are directions instead (F = 0, L = +pi/2, R = -pi/2),
+smoothed by a first-order IIR low-pass filter; every decision moves the robot --step
+along the filtered direction, so mixed decisions give diagonal moves (sim_core/motion.py).
+
 Policies:
     net      TorchScript model from train.py (model.ts): image -> logits over L / F / R
     expert   cost-to-go expert on the true geometry (upper bound)
@@ -59,6 +63,9 @@ parser.add_argument("--step", type=float, default=0.2, help="Forward move of one
 parser.add_argument("--side-step", type=float, default=0.2, help="Sideways move of one L / R step [m]")
 parser.add_argument("--side-forward", type=float, default=0.0,
                     help="Forward move during an L / R step [m] (0 = pure sideways, as the expert's labels)")
+parser.add_argument("--filter-alpha", type=float, default=None,
+                    help="Low-pass filter the direction (F 0, L +90, R -90 deg) with this memory in [0, 1): "
+                         "angle = a * angle + (1 - a) * target, move --step along it. Default: discrete moves")
 parser.add_argument("--start-x", type=float, default=-17.0, help="Start x of the body centre [m]")
 parser.add_argument("--start-y", type=float, default=0.0, help="Start y of the body centre [m] (+ = left)")
 parser.add_argument("--goal-after", type=float, default=1.0,
@@ -94,6 +101,7 @@ from PIL import Image
 
 import isaac_scene as scene
 from sim_core import Expert, World
+from sim_core.motion import DiscreteMotion, FilteredMotion
 
 CLASSES = ("L", "F", "R")  # network output order, as training/dataset.py
 
@@ -163,18 +171,6 @@ class ForwardPolicy:
 
 
 # ---------------------------------------------------------------- episode
-def move(action):
-    if action == "F":
-        return args.step, 0.0
-    if action == "B":
-        return -args.step, 0.0
-    if action == "L":
-        return args.side_forward, args.side_step
-    if action == "R":
-        return args.side_forward, -args.side_step
-    raise ValueError(action)
-
-
 def check_segment(world, p0, p1):
     """Outcome of moving the body centre from p0 to p1: None (fine), 'collision' or 'off_road'.
 
@@ -203,8 +199,9 @@ def episode_goal(world):
     return min(args.goal_x, world.obstacles_x_end + world.robot_half[0] + args.goal_after)
 
 
-def run_episode(policy, world, robot, robot_info, rgb, goal_x, frames_dir):
+def run_episode(policy, motion, world, robot, robot_info, rgb, goal_x, frames_dir):
     policy.reset(world, goal_x)
+    motion.reset()
     max_steps = args.max_steps or 3 * math.ceil((goal_x - args.start_x) / args.step)
     x, y = args.start_x, args.start_y
     points, actions, extras = [(x, y)], [], []
@@ -220,7 +217,7 @@ def run_episode(policy, world, robot, robot_info, rgb, goal_x, frames_dir):
         if frames_dir:
             Image.fromarray(image).save(frames_dir / f"{k:04d}.png")
         action, extra = policy.act(image, x, y)
-        dx, dy = move(action)
+        dx, dy = motion.move(action)
         nxt = (x + dx, y + dy)
         outcome = check_segment(world, (x, y), nxt)
         x, y = nxt
@@ -287,6 +284,11 @@ def main():
         else:
             policies.append(ForwardPolicy())
 
+    if args.filter_alpha is None:
+        motion = DiscreteMotion(args.step, args.side_step, args.side_forward)
+    else:
+        motion = FilteredMotion(args.step, args.filter_alpha)
+
     stage = scene.new_stage()
     scene.build_world(stage)
     robot = scene.load_robot(stage, args.robot)
@@ -312,7 +314,7 @@ def main():
                 if args.save_frames:
                     frames = out / "frames" / f"layout_{layout:06d}_{policy.name}"
                     frames.mkdir(parents=True, exist_ok=True)
-                ep = run_episode(policy, world, robot, robot_info, rgb, goal_x, frames)
+                ep = run_episode(policy, motion, world, robot, robot_info, rgb, goal_x, frames)
                 ep = {"layout": layout, "seed": seed, "policy": policy.name, **ep}
                 results[policy.name].append(ep)
                 f.write(json.dumps({**ep, "obstacles": obstacles}) + "\n")

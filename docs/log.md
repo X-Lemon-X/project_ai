@@ -6,6 +6,22 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-18 — Low-pass-filtered steering in `drive.py`
+
+**Done**
+- `sim_core/motion.py`: `DiscreteMotion` (the old fixed F / L / R steps) and
+  `FilteredMotion`: decisions coded as directions F = 0, L = +π/2, R = −π/2,
+  filtered by a first-order IIR low-pass (`angle = α·angle + (1−α)·target`);
+  each step moves `--step` along the filtered direction, so the robot can drive
+  diagonally. Enabled in `drive.py` with `--filter-alpha α`.
+- `tests/test_motion.py`: checks of both motion modes.
+
+**Next**
+- Evaluate `net` with a few α values (e.g. 0.5, 0.7, 0.85) against discrete moves
+  on the same layouts.
+
+---
+
 ## 2026-11-12 — Closed-loop test `drive.py`
 
 **Done**
