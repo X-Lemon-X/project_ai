@@ -86,6 +86,49 @@ All 1000 layouts are feasible (a path exists from the first column), and all
 5000 paths reach the goal. `lookahead` sets the distance at which the robot
 starts to dodge. Rows beyond it are labelled F by design.
 
+## Directional expert (prototype, `sim_core/directional.py`)
+
+For the direction + speed output of
+[0007 D](../proposals/0007-closed-loop-fixes.md#d-output-as-direction--speed).
+Same lattice, same `Costs` and penalties, but 8 or 16 move directions
+(lattice steps such as (1, 1) or (2, 1)), including backward ones. A move is
+allowed only if the gap stays ≥ `margin` at points along it, so diagonals
+can't cut obstacle corners. `decide(x, y)` gives the cost of every direction,
+the best one (tie-break: most forward, then more clearance, then left) and a
+**speed** in [0, 1]: free distance along the best direction / `brake_dist`
+(1.5 m), clipped.
+
+```python
+from sim_core.directional import DirectionalExpert
+ex = DirectionalExpert(lay.world, connectivity=8)
+d = ex.decide(x, y)        # d.angle_deg, d.speed, d.costs (per direction), d.ties
+```
+
+Feasibility check on all 1000 layouts, 25,000 grid samples, label settings as
+`labels_meta.json` (2026-11-19):
+
+| | 8 directions | 16 directions |
+|---|---|---|
+| Time per layout (Dijkstra + edge checks) | 0.7 s | 2.0 s |
+| All expert paths reach the goal | yes | yes |
+| Best direction F / diagonal / sideways | 82 % / 8 % / 10 % | 79 % / 16 % (±26°, ±63°) / 4 % (±45° 4 %) |
+| Backward part (\|angle\| > 90°) | **0** | **0** |
+| Lateral sign agrees with the L / F / R labels | 99.5 % | 98.6 % |
+| Ties | 31 % (100 of them left vs right) | 31 % (100 left vs right) |
+| Speed < 1 | 4.1 % (min 0.81) | 1.4 % (min 0.68) |
+| Sideways or diagonal in row 2 (5.5 m gap) | 16 % | 23 % (old labels: 0 %) |
+
+- The paths are smoother and start dodging earlier than with 4 directions
+  ([figure](../figures/2026-11-19_directional_paths.png)).
+- **No backward moves and almost no slowing down on the grid samples.** The
+  robot is holonomic and every grid row is ≥ 1 m from the obstacles, so going
+  forward or sideways is always possible. Back-off and speed labels only
+  become informative on states close to obstacles (DAgger rollouts) or with
+  rotation (0007 G).
+- All three experts dodge in two stages (out of the obstacle's lane first, a
+  little further when close). That is the effect of the `ahead` and `clearance`
+  terms, not of the directions.
+
 ## Speed
 
 Grid and Dijkstra take ≈ 38 ms per layout (pure Python heap). Labelling all

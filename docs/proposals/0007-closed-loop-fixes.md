@@ -109,6 +109,11 @@ down, stop or back off.
   costs into soft targets (`train.py --soft-temp`). Speed target: from the
   free distance ahead and the clearance, e.g. slow near obstacles and 0 when
   every direction is blocked. All offline, from the existing geometry.
+- **Feasibility (2026-11-19): done.** Prototype `sim_core/directional.py`, checked on
+  all 25,000 grid samples ([expert](../knowledge/expert.md#directional-expert-prototype-sim_coredirectionalpy)).
+  The direction labels work: smoother paths, earlier dodges, 99.5 % consistent
+  with the L / F / R labels. Backing off and slowing down don't occur on grid
+  samples, so the speed head needs DAgger states first.
 - **Filter.** Keep low-pass filtering for smoothness, but on the
   **velocity**, so a "stop" from the network brings the robot to rest in a
   few steps instead of carrying it into the obstacle.

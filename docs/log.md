@@ -6,6 +6,28 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Directional expert (prototype)
+
+**Done**
+- `sim_core/directional.py`: expert with 8 or 16 move directions (diagonals,
+  backward) and a speed label, same costs as the current expert. Test:
+  `tests/test_directional.py`.
+- Feasibility check on all 25,000 samples: all paths reach the goal, the
+  direction labels agree with the L / F / R labels in 99.5 % (8 directions),
+  paths are smoother and dodges start earlier. **No sample needs a backward
+  move and almost none needs slowing down**, because the robot can always
+  step sideways and every grid row is ≥ 1 m from the obstacles.
+  → [expert](knowledge/expert.md#directional-expert-prototype-sim_coredirectionalpy)
+- MuJoCo twin of the scene: considered and parked (Q19).
+
+**Next**
+- Decide 8 vs 16 directions (Q20). Then: labeller for direction labels,
+  `train.py` with a direction head (and later a speed head), and `drive.py`
+  motion along the predicted direction.
+- Speed / back-off labels need states near obstacles: DAgger rollouts first.
+
+---
+
 ## 2026-11-19 — DAgger labeller
 
 **Done**

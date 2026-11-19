@@ -18,6 +18,8 @@ When a question is answered, write the answer next to it (or move it to
 | Q16 | Output of the policy: keep L/F/R, or direction + speed (direction bins + signed speed) so it can stop and back off? | Direction bins + speed, labels from the expert with 8-16 directions ([0007 D](proposals/0007-closed-loop-fixes.md#d-output-as-direction--speed)) | 0005, 0007 |
 | Q17 | Side cameras as input: allowed, or is it "easy mode"? | Allowed, reported as a comparison: front only vs front + sides ([0007 F](proposals/0007-closed-loop-fixes.md#f-side-cameras)) | 0007 |
 | Q18 | Rotation (variable heading): when? | After the fixed-heading fixes (DAgger, new output, memory) work ([0007 G](proposals/0007-closed-loop-fixes.md#g-rotation)) | 0005, 0007 |
+| Q19 | MuJoCo twin of the scene (renderer only, no physics) so closed-loop tests and data generation run without Isaac Sim? | **Parked** (2026-11-19). Cheap (geometry, expert and training are already engine-free), but images differ between engines. Revisit if waiting for Isaac Sim slows the work. First step would be: one layout rendered in both, side by side | 0007 |
+| Q20 | Directional expert: 8 or 16 directions for the new output? | 8: simpler classes, 3× faster, 99.5 % consistent with the old labels. 16 gives smoother diagonals | expert, 0007 |
 
 ## Answered
 
