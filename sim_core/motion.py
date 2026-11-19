@@ -3,6 +3,7 @@
 Heading stays 0 deg (facing +X); the move is a translation, "left" = +Y.
 
 DiscreteMotion  every action is a fixed step, as in the expert's labels.
+VelocityMotion  for the velocity model: (vx, vy) in the unit disk -> step * (vx, vy), filtered.
 DirectionalMotion  for the 8-direction model: (direction, speed) -> a step along the direction,
                 scaled by the speed, optionally low-pass filtered as a velocity vector.
 FilteredMotion  each action is a direction (F = 0, L = +pi/2, R = -pi/2); a first-order
@@ -98,4 +99,33 @@ class DirectionalMotion:
         target = (self.step * s * math.cos(a), self.step * s * math.sin(a))
         vx, vy = self.velocity
         self.velocity = (self.alpha * vx + (1 - self.alpha) * target[0], self.alpha * vy + (1 - self.alpha) * target[1])
+        return self.velocity
+
+
+@dataclass
+class VelocityMotion:
+    """Moves for the velocity model: action = (k, vx, vy), (vx, vy) in the unit disk, k = nearest
+    DIRS8 index (only for logging). The step step * (vx, vy) is low-pass filtered as a vector
+    like DirectionalMotion (alpha = 0: no smoothing), so the model can slow down and back off
+    continuously.
+    """
+    step: float
+    alpha: float = 0.0
+    velocity: tuple = field(default=(0.0, 0.0), init=False)
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.alpha < 1.0:
+            raise ValueError(f"filter alpha must be in [0, 1), got {self.alpha}")
+
+    def reset(self) -> None:
+        self.velocity = (0.0, 0.0)
+
+    def move(self, action) -> tuple[float, float]:
+        _, vx, vy = action
+        n = math.hypot(vx, vy)
+        if n > 1.0:
+            vx, vy = vx / n, vy / n
+        tx, ty = self.step * vx, self.step * vy
+        px, py = self.velocity
+        self.velocity = (self.alpha * px + (1 - self.alpha) * tx, self.alpha * py + (1 - self.alpha) * ty)
         return self.velocity

@@ -13,6 +13,8 @@ good, and choosing either is right.
     confusion     rows = expert action, columns = prediction, order L, F, R
 """
 
+import math
+
 import torch
 
 from .dataset import CLASSES
@@ -51,4 +53,26 @@ def decision_metrics(logits, target, costs, label, aux_pred=None, aux_true=None,
     conf = torch.zeros(len(classes), len(classes), dtype=torch.long)
     conf.index_put_((label.cpu(), pred.cpu()), torch.ones_like(label.cpu()), accumulate=True)
     out["confusion"] = conf.tolist()
+    return out
+
+
+@torch.no_grad()
+def velocity_metrics(v_pred, aux_pred, aux_true, target, costs, label, classes):
+    """Metrics of the vel task. v_pred [N, 2] in the unit disk; aux_true = [log dist, vx, vy].
+
+    The predicted velocity is mapped to the nearest of the 8 directions, so acc / bal_acc /
+    regret / unsafe are comparable with the dir task. angle_err: mean angle between predicted
+    and expert velocity [deg] (both faster than 0.05); speed_mae: error of |v|; vel_mae: mean |v - v*|.
+    """
+    v_true = aux_true[:, 1:3]
+    ang = torch.atan2(v_pred[:, 1], v_pred[:, 0])
+    pred = torch.remainder(torch.round(ang / (math.pi / 4)), 8).long()        # nearest DIRS8 index
+    out = decision_metrics(torch.nn.functional.one_hot(pred, 8).float(), target, costs, label,
+                           aux_pred[:, :1], aux_true[:, :1], classes=classes)
+    sp, st = v_pred.norm(dim=1), v_true.norm(dim=1)
+    both = (sp > 0.05) & (st > 0.05)
+    cos = (v_pred * v_true).sum(1) / (sp * st).clamp_min(1e-6)
+    out["angle_err"] = torch.rad2deg(torch.acos(cos[both].clamp(-1, 1))).mean().item() if both.any() else float("nan")
+    out["speed_mae"] = (sp - st).abs().mean().item()
+    out["vel_mae"] = (v_pred - v_true).norm(dim=1).mean().item()
     return out

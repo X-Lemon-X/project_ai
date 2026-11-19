@@ -6,6 +6,25 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Direction model results (first look), velocity model
+
+**Done**
+- `resnet18_dir_plans` (8 directions + speed, grid + planned samples) trained on Colab. Test on
+  the Isaac grid: bal_acc 0.910 over the 5 directions that occur there, unsafe 0.
+- First closed-loop look (MuJoCo, no filter, 33 of 100 layouts): it **does back off**
+  (10.5 % of its moves) and slows down, but succeeds less often than the baseline (25 vs 29).
+  It has a new deadlock: forward ↔ back at the shoulder edge, often already past the
+  obstacles. The old left ↔ right deadlock appears once.
+- `--task vel`: continuous velocity output (vx, vy) in the unit disk (squashed by
+  construction), same labels. `VelocityMotion`, `drive_mujoco.py --velocity`. Tests extended.
+  The lfr and dir tasks are unchanged (same CPU check numbers).
+
+**Next**
+- Finish the direction-model evaluation (filter run, directional-expert upper bound).
+- Train `--task vel` on Colab with `labels_dir_plans.jsonl` and compare it with the direction model.
+
+---
+
 ## 2026-11-19 — DAgger control result, session wrap-up
 
 **Done**

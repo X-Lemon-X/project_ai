@@ -117,6 +117,39 @@ Checks: `tests/test_training_dir.py` (targets, mirror permutation = direction
 geometry), `tests/test_motion.py` (DirectionalMotion). A CPU run of the L / F / R task gives
 exactly the numbers it gave before the change.
 
+## Velocity model (`--task vel`, 2026-11-19)
+
+Continuous output instead of direction classes, as proposed at the 2026-11-19 session: the
+network predicts the velocity **(vx, vy)** directly (forward / left in the robot frame).
+The speed is |v|, backing off is vx < 0, the angle is atan2(vy, vx).
+
+```bash
+python3 train.py --data data/grid --labels data/grid/labels_dir_plans.jsonl --task vel --out runs/vel_plans
+python3 drive_mujoco.py --model runs/vel_plans/model.ts --velocity --count 100 [--filter-alpha 0.7]
+```
+
+- **Why (vx, vy)** and not angle + speed: angle ± 180° with speed ± 1 describes every
+  velocity twice ((0°, −1) = (180°, +1)), so the target is ambiguous. An angle wraps around at
+  ± 180°, and an angle of ± 90° with signed speed jumps at pure sideways moves, which are common.
+  (vx, vy) has none of these problems.
+- **Unit disk by construction:** the head outputs z ∈ R², the model returns
+  v = z · tanh(|z|) / |z| (`training.models.squash_to_disk`), so every output is a valid
+  velocity and the network doesn't have to learn the constraint.
+- **Labels:** the same direction labels as `--task dir` (`label_directions.py`), with target
+  speed × unit vector of the expert's best direction. The expert's tie-break keeps the labels
+  consistent, so left / right ties don't average in the data. Mirroring flips vy.
+- **Loss:** smooth L1 (β = 0.1) on (vx, vy), with each sample weighted by the rarity of its
+  direction (the class weights of the 8 directions), + 0.5 · distance-ahead loss.
+- **Metrics:** the predicted velocity is mapped to the nearest of the 8 directions for `acc`,
+  `bal_acc`, `regret` and `unsafe` (comparable with `dir`), plus `angle_err` (deg), `speed_mae`
+  and `vel_mae` (mean |v − v*|).
+- **Driving:** `sim_core.motion.VelocityMotion` moves `step · v` (clipped to |v| ≤ 1) with the
+  same velocity low-pass filter as the direction model. `closed_loop.NetPolicy` detects a
+  velocity model by its 2 outputs.
+- **Expected trade-off:** no flipping between classes at a decision boundary (the forward ↔
+  back and left ↔ right deadlocks of the direction model), but where two answers are equally
+  good the network can average them (left / right → straight, forward / back → stand still).
+
 ## Model (`training/models.py`)
 
 `DecisionNet` = backbone → 512-d (ResNet18) features → two heads:

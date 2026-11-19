@@ -9,7 +9,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from sim_core.directional import DIRS8  # noqa: E402
-from training.dataset import TASKS, aux_target, class_target  # noqa: E402
+from training.dataset import DIR_UNIT, TASKS, aux_target, class_target, velocity_target  # noqa: E402
 
 
 def test_flip_matches_the_direction_geometry():
@@ -34,6 +34,17 @@ def test_lfr_targets_unchanged():
     t, _ = class_target(row)
     assert np.allclose(t, [0.5, 0, 0.5])
     assert aux_target(row).shape == (1,)
+
+
+def test_velocity_target_and_squash():
+    import torch
+    from training.models import squash_to_disk
+    row = {"dir": 1, "speed": 0.5}
+    assert np.allclose(velocity_target(row), 0.5 * np.array([1, 1]) / math.sqrt(2))
+    assert np.allclose(np.linalg.norm(DIR_UNIT, axis=1), 1)
+    v = squash_to_disk(torch.tensor([[100.0, 0.0], [0.0, -0.01], [3.0, 4.0]]))
+    assert (v.norm(dim=1) <= 1 + 1e-6).all() and v[0, 0] > 0.99 and v[1, 1] < 0   # |v| <= 1 (tanh saturates to 1 in float32)
+    assert torch.allclose(v[2] / v[2].norm(), torch.tensor([0.6, 0.8]))     # direction kept
 
 
 if __name__ == "__main__":

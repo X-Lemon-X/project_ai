@@ -50,6 +50,10 @@ class NetPolicy:
             logits, aux = self.model(t)
             p = torch.softmax(logits.float(), dim=1)[0].cpu().numpy()
             aux = aux.float()[0].cpu().numpy()
+        if len(p) == 2:                                   # velocity model: raw (vx, vy), not probabilities
+            vx, vy = (float(v) for v in logits.float()[0].cpu().numpy())
+            k = int(round(math.atan2(vy, vx) / (math.pi / 4))) % 8
+            return (str(k), vx, vy), {"v": [round(vx, 4), round(vy, 4)], "aux": round(float(aux[0]), 4)}
         k = int(p.argmax())
         extra = {"p": [round(float(v), 4) for v in p], "aux": round(float(aux[0]), 4)}
         if len(p) == 8:                                   # direction model: (direction, speed)
@@ -59,12 +63,16 @@ class NetPolicy:
         return CLASSES[k], extra
 
     @property
-    def directional(self):
-        """True for a model with 8 direction outputs (train.py --task dir)."""
+    def kind(self):
+        """'lfr' (3 outputs), 'dir' (8 directions, train.py --task dir) or 'vel' (2 = vx, vy, --task vel)."""
         torch = self.torch
         with torch.no_grad():
             logits, _ = self.model(torch.zeros(1, 3, 224, 224, device=self.device))
-        return logits.shape[1] == 8
+        return {3: "lfr", 8: "dir", 2: "vel"}[logits.shape[1]]
+
+    @property
+    def directional(self):
+        return self.kind == "dir"
 
 
 class ExpertPolicy:

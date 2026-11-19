@@ -41,7 +41,18 @@ AHEAD_MIN, AHEAD_MAX = 0.1, 12.0
 TASKS = {
     "lfr": {"classes": CLASSES, "flip": FLIP, "aux": 1},
     "dir": {"classes": ("F", "FL", "L", "BL", "B", "BR", "R", "FR"), "flip": [0, 7, 6, 5, 4, 3, 2, 1], "aux": 2},
+    # "vel": continuous velocity (vx, vy) in the unit disk (2 outputs), from the same direction
+    # labels; the 8 directions are used for sample weights and for comparable metrics.
+    "vel": {"classes": ("F", "FL", "L", "BL", "B", "BR", "R", "FR"), "flip": [0, 7, 6, 5, 4, 3, 2, 1], "aux": 1,
+            "outputs": 2},
 }
+DIR_UNIT = np.array([[1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1]], dtype=np.float32)
+DIR_UNIT /= np.linalg.norm(DIR_UNIT, axis=1, keepdims=True)   # unit vector of each of the 8 directions
+
+
+def velocity_target(row):
+    """Expert velocity (vx, vy) = speed x unit vector of the best direction (after the tie-break)."""
+    return (DIR_UNIT[row["dir"]] * row["speed"]).astype(np.float32)
 
 
 def load_labels(path, splits=None, status=("ok",)):
@@ -56,7 +67,7 @@ def load_labels(path, splits=None, status=("ok",)):
 
 
 def class_target(row, soft_temp=0.0, task="lfr"):
-    if task == "dir":
+    if task in ("dir", "vel"):
         costs = np.array([math.inf if c is None else c for c in row["dir_costs"]])
         best = row["dir_ties"] or [row["dir"]]
     else:
@@ -77,6 +88,7 @@ def aux_target(row, task="lfr"):
     d = AHEAD_MAX if d is None else min(max(d, AHEAD_MIN), AHEAD_MAX)
     if task == "dir":
         return np.array([math.log(d), row["speed"]], dtype=np.float32)
+    # lfr and vel: the speed of vel is the length of the predicted velocity
     return np.array([math.log(d)], dtype=np.float32)
 
 
@@ -92,7 +104,8 @@ class DecisionDataset(Dataset):
         self.targets, self.costs = zip(*(class_target(r, soft_temp, task) for r in rows)) if rows else ((), ())
         self.aux = [aux_target(r, task) for r in rows]
         # expert action after the tie-break (for per-class recall)
-        self.labels = [r["dir"] if task == "dir" else CLASSES.index(r["action"]) for r in rows]
+        self.labels = [r["dir"] if task in ("dir", "vel") else CLASSES.index(r["action"]) for r in rows]
+        self.velocity = [velocity_target(r) for r in rows] if task == "vel" else None
         self.images = [self._read(i) for i in range(len(rows))] if preload else None
 
     def __len__(self):
@@ -121,6 +134,14 @@ class DecisionDataset(Dataset):
         label = self.labels[i]
         if self.augment and flipped:
             label = self.flip[label]
+        if self.velocity is not None:
+            # vel: target = the expert velocity (mirrored: vy -> -vy); the class target stays
+            # available through costs / label for the metrics
+            v = torch.from_numpy(self.velocity[i]).clone()
+            if self.augment and flipped:
+                v[1] = -v[1]
+            aux = torch.cat([torch.from_numpy(self.aux[i]), v])      # [log distance, vx, vy]
+            return img, target, aux, costs, label
         return img, target, torch.from_numpy(self.aux[i]), costs, label
 
 

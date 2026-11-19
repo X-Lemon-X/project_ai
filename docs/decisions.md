@@ -2,6 +2,14 @@
 
 Newest first. One entry per decision: what, why, and where it is described.
 
+## 2026-11-19 — Continuous velocity output (vx, vy)
+
+- **Third output type `--task vel`: the velocity (vx, vy)** in the unit disk, next to L / F / R and
+  the 8 directions. Why: the direction model gets stuck flipping between forward and back
+  (a class boundary). A continuous output changes smoothly. (vx, vy) instead of angle + speed
+  avoids the double description and the wrap-around at ± 180°.
+  → [training](knowledge/training.md#velocity-model---task-vel-2026-11-19)
+
 ## 2026-11-19 — Expert-planned sampling accepted (0008), direction model
 
 - **Proposal [0008](proposals/0008-expert-planned-sampling.md) accepted.** The generator

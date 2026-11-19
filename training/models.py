@@ -29,20 +29,30 @@ class Heads(nn.Module):
         return self.action(f), self.aux(f)
 
 
+def squash_to_disk(z):
+    """R^2 -> unit disk (|v| <= 1), smooth: keeps the direction, length tanh(|z|)."""
+    n = z.norm(dim=1, keepdim=True).clamp_min(1e-6)
+    return z * torch.tanh(n) / n
+
+
 class DecisionNet(nn.Module):
-    def __init__(self, backbone, feat_dim, pretrained_backbone, num_classes=3, num_aux=1):
+    def __init__(self, backbone, feat_dim, pretrained_backbone, num_classes=3, num_aux=1, velocity=False):
         super().__init__()
         self.register_buffer("mean", torch.tensor(IMAGENET_MEAN).view(1, 3, 1, 1))
         self.register_buffer("std", torch.tensor(IMAGENET_STD).view(1, 3, 1, 1))
         self.backbone = backbone
         self.heads = Heads(feat_dim, num_classes, num_aux)
         self.pretrained_backbone = pretrained_backbone
+        self.velocity = velocity      # task vel: the action head gives (vx, vy) in the unit disk
 
     def features(self, x):
         return self.backbone((x - self.mean) / self.std)
 
     def forward(self, x):
-        return self.heads(self.features(x))
+        out, aux = self.heads(self.features(x))
+        if self.velocity:
+            out = squash_to_disk(out)
+        return out, aux
 
     def param_groups(self, lr_backbone, lr_head, weight_decay):
         """Pretrained backbones get a smaller learning rate than the new heads."""
@@ -65,7 +75,7 @@ def _small_cnn():
     return net, 256
 
 
-def build_model(name="resnet18", pretrained=True, num_classes=3, num_aux=1):
+def build_model(name="resnet18", pretrained=True, num_classes=3, num_aux=1, velocity=False):
     tv = torchvision.models
     if name == "resnet18":
         m = tv.resnet18(weights=tv.ResNet18_Weights.IMAGENET1K_V1 if pretrained else None)
@@ -80,7 +90,7 @@ def build_model(name="resnet18", pretrained=True, num_classes=3, num_aux=1):
         (m, dim), pretrained = _small_cnn(), False
     else:
         raise ValueError(f"unknown model {name!r}")
-    return DecisionNet(m, dim, pretrained, num_classes, num_aux)
+    return DecisionNet(m, dim, pretrained, num_classes, num_aux, velocity)
 
 
 MODELS = ("resnet18", "mobilenet_v3_small", "efficientnet_b0", "smallcnn")

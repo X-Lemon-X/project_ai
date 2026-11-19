@@ -45,7 +45,7 @@ perfect and the data generation runs unattended.
 |---|---|
 | `scene_gen.py` | Dataset generator: places random obstacles per layout and captures camera + lidar over a grid of robot positions. Uses `isaac_scene.py` |
 | `mujoco_scene.py` | MuJoCo version of the scene (renderer only, trial): same layouts via `sim_core/layout.py`, Isaac-like lighting and tone curve. Needs `pip install mujoco`. See `docs/knowledge/mujoco.md` |
-| `drive_mujoco.py`, `closed_loop.py` | Closed-loop test in MuJoCo (same options and outputs as `drive.py`); `closed_loop.py` = renderer-independent policies, episode loop and scoring |
+| `drive_mujoco.py`, `closed_loop.py` | Closed-loop test in MuJoCo (same options and outputs as `drive.py`; `--directional` for direction models, `--velocity` for velocity models); `closed_loop.py` = renderer-independent policies, episode loop and scoring |
 | `compare_renderers.py` | Isaac vs MuJoCo on dataset layouts: side-by-side figure and metrics |
 | `isaac_scene.py` | Isaac Sim scene shared by `scene_gen.py` and `drive.py`: road, robot, obstacle pool, camera, lidar. Import only after creating `SimulationApp` |
 | `drive.py` | Closed-loop test in Isaac Sim: camera → policy (`net` = `model.ts`, `expert`, `forward`) → F/L/R step, on unseen layouts (default from 100000). Writes `<model dir>/drive/eval.json` + `episodes.jsonl` |

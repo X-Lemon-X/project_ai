@@ -9,6 +9,8 @@ Runs locally or in Colab (torch + torchvision + numpy + Pillow; no Isaac Sim).
     python3 train.py --data data/grid --subset 0.1 --epochs 2 --out runs/smoke      # quick check
     python3 train.py --data data/grid --labels data/grid/labels_dir.jsonl --task dir --out runs/dir_001
                        # 8 directions + speed, labels from label_directions.py
+    python3 train.py --data data/grid --labels data/grid/labels_dir_plans.jsonl --task vel --out runs/vel_001
+                       # continuous velocity (vx, vy) in the unit disk, same labels
 
 Per run, in --out:
     config.json        arguments, label settings (labels_meta.json), versions
@@ -16,7 +18,8 @@ Per run, in --out:
     last.pt / best.pt  checkpoints (best = highest val balanced accuracy)
     test_metrics.json  best model on the test split (incl. confusion matrix)
     model.ts           TorchScript of the best model: float [N,3,224,224] in [0,1] -> (logits[N,3], aux[N,1])
-                       (task dir: logits[N,8] over sim_core.directional.DIRS8, aux[N,2] = [log distance, speed])
+                       (task dir: logits[N,8] over sim_core.directional.DIRS8, aux[N,2] = [log distance, speed];
+                        task vel: v[N,2] = (vx, vy) in the unit disk, aux[N,1] = log distance)
 
 Loss = class-weighted cross-entropy on the tie-aware target + aux_weight * smooth-L1 on
 log(free distance ahead). Phase 1 (--freeze-epochs) trains only the heads; then everything
@@ -38,7 +41,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 
 from training.dataset import TASKS, DecisionDataset, load_labels
-from training.metrics import decision_metrics
+from training.metrics import decision_metrics, velocity_metrics
 from training.models import MODELS, build_model
 
 
@@ -47,7 +50,8 @@ def parse_args():
     ap.add_argument("--data", default="data/grid", help="dataset folder (images are read relative to it)")
     ap.add_argument("--labels", help="labels file (default <data>/labels.jsonl)")
     ap.add_argument("--task", default="lfr", choices=sorted(TASKS),
-                    help="lfr: L / F / R (label.py); dir: 8 directions + speed (label_directions.py)")
+                    help="lfr: L / F / R (label.py); dir: 8 directions + speed (label_directions.py); "
+                         "vel: continuous velocity (vx, vy) in the unit disk (same labels as dir)")
     ap.add_argument("--out", required=True, help="run folder")
     ap.add_argument("--model", default="resnet18", choices=MODELS)
     ap.add_argument("--no-pretrained", action="store_true", help="random init instead of ImageNet weights")
@@ -110,6 +114,15 @@ def class_weights(counts, mode, flip, perm=(2, 1, 0)):
     return torch.tensor(w / (w * counts).sum() * counts.sum(), dtype=torch.float32)  # mean weight 1 per sample
 
 
+def velocity_loss(v, aux, aux_true, label, weights, aux_weight):
+    """vel task: smooth-L1 on (vx, vy), weighted by the rarity of the sample's direction, + distance."""
+    w = weights[label]
+    err = F.smooth_l1_loss(v.float(), aux_true[:, 1:3], reduction="none", beta=0.1).sum(1)
+    loss_v = (w * err).sum() / w.sum()
+    loss_aux = F.smooth_l1_loss(aux.float()[:, :1], aux_true[:, :1]) if aux_weight > 0 else v.new_zeros(())
+    return loss_v + aux_weight * loss_aux, loss_v.detach(), loss_aux.detach()
+
+
 def loss_fn(logits, aux, target, aux_true, weights, aux_weight):
     w = (target * weights).sum(1)                               # per-sample class weight
     ce = -(target * F.log_softmax(logits.float(), 1)).sum(1)
@@ -119,7 +132,7 @@ def loss_fn(logits, aux, target, aux_true, weights, aux_weight):
 
 
 @torch.no_grad()
-def evaluate(model, loader, device, amp, classes):
+def evaluate(model, loader, device, amp, classes, task="lfr"):
     model.eval()
     L, T, C, Y, A, At = [], [], [], [], [], []
     for img, target, aux_true, costs, label in loader:
@@ -127,6 +140,9 @@ def evaluate(model, loader, device, amp, classes):
             logits, aux = model(img.to(device, non_blocking=True))
         L.append(logits.float().cpu()); A.append(aux.float().cpu())
         T.append(target); C.append(costs); Y.append(label); At.append(aux_true)
+    if task == "vel":
+        return velocity_metrics(torch.cat(L), torch.cat(A), torch.cat(At), torch.cat(T), torch.cat(C), torch.cat(Y),
+                                classes)
     return decision_metrics(torch.cat(L), torch.cat(T), torch.cat(C), torch.cat(Y), torch.cat(A), torch.cat(At),
                             classes=classes)
 
@@ -159,8 +175,8 @@ def main():
     print(f"device {device} | task {a.task} | train {len(ds['train'])}  val {len(ds['val'])}  test {len(ds['test'])} | "
           f"class counts {dict(zip(classes, counts.round(1)))} | weights {weights.cpu().numpy().round(3)}")
 
-    model = build_model(a.model, pretrained=not a.no_pretrained, num_classes=len(classes),
-                        num_aux=task["aux"]).to(device)
+    model = build_model(a.model, pretrained=not a.no_pretrained, num_classes=task.get("outputs", len(classes)),
+                        num_aux=task["aux"], velocity=a.task == "vel").to(device)
     opt = torch.optim.AdamW(model.param_groups(a.lr_backbone, a.lr_head, a.weight_decay))
     steps = a.epochs * len(loaders["train"])
     sched = torch.optim.lr_scheduler.LambdaLR(opt, lr_lambda(steps, a.warmup))
@@ -184,13 +200,18 @@ def main():
     keys = ["acc", "bal_acc"] + [f"recall_{c}" for c in classes] + ["regret", "unsafe", "dist_mae"]
     if task["aux"] > 1:
         keys.append("speed_mae")
+    if a.task == "vel":
+        keys += ["speed_mae", "angle_err", "vel_mae"]
     fields = ["epoch", "time_s", "lr_head", "train_loss", "train_cls", "train_aux"] + [f"val_{k}" for k in keys]
 
     def recalls(m):
         return " ".join(f"{c} {m[f'recall_{c}']:.2f}" for c in classes if m[f"recall_{c}"] == m[f"recall_{c}"])
 
     def extra(m):
-        return f"  speed {m['speed_mae']:.3f}" if "speed_mae" in m else ""
+        s = f"  speed {m['speed_mae']:.3f}" if "speed_mae" in m else ""
+        if "angle_err" in m:
+            s += f"  angle {m['angle_err']:.1f} deg  |v-v*| {m['vel_mae']:.3f}"
+        return s
     metrics_csv = out / "metrics.csv"
     if start == 0 or not metrics_csv.exists():
         with open(metrics_csv, "w", newline="") as f:
@@ -209,7 +230,10 @@ def main():
             img, target, aux_true = (x.to(device, non_blocking=True) for x in (img, target, aux_true))
             with torch.autocast(device.type, enabled=amp):
                 logits, aux = model(img)
-            loss, lc, la = loss_fn(logits, aux, target, aux_true, weights, a.aux_weight)
+            if a.task == "vel":
+                loss, lc, la = velocity_loss(logits, aux, aux_true, label.to(device), weights, a.aux_weight)
+            else:
+                loss, lc, la = loss_fn(logits, aux, target, aux_true, weights, a.aux_weight)
             opt.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.step(opt)
@@ -219,7 +243,7 @@ def main():
             n += 1
         tot /= max(n, 1)
 
-        m = evaluate(model, loaders["val"], device, amp, classes)
+        m = evaluate(model, loaders["val"], device, amp, classes, a.task)
         row = [epoch, round(time.time() - t0, 1), opt.param_groups[1]["lr"], *tot.round(4),
                *(round(m[k], 4) for k in keys)]
         with open(metrics_csv, "a", newline="") as f:
@@ -238,7 +262,7 @@ def main():
     # ---- test the best model and export it
     ck = torch.load(out / "best.pt", map_location=device, weights_only=False)
     model.load_state_dict(ck["model"])
-    m = evaluate(model, loaders["test"], device, amp, classes)
+    m = evaluate(model, loaders["test"], device, amp, classes, a.task)
     m["best_epoch"] = ck["epoch"]
     (out / "test_metrics.json").write_text(json.dumps(m, indent=2))
     print(f"test (best epoch {ck['epoch']}): acc {m['acc']:.3f}  bal {m['bal_acc']:.3f}  {recalls(m)}  "

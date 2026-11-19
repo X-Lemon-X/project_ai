@@ -1,0 +1,232 @@
+{
+  "args": {
+    "data": "data/grid",
+    "labels": "data/grid/labels_dir_plans.jsonl",
+    "task": "dir",
+    "out": "/content/drive/MyDrive/runs/resnet18_dir_plans",
+    "model": "resnet18",
+    "no_pretrained": false,
+    "epochs": 12,
+    "freeze_epochs": 1,
+    "batch": 64,
+    "lr_head": 0.001,
+    "lr_backbone": 0.0001,
+    "weight_decay": 0.0001,
+    "warmup": 200,
+    "aux_weight": 0.5,
+    "class_weights": "balanced",
+    "soft_temp": 0.0,
+    "no_flip": false,
+    "jitter": 0.2,
+    "subset": 1.0,
+    "preload": false,
+    "workers": 2,
+    "no_amp": false,
+    "seed": 0,
+    "resume": false
+  },
+  "labels_meta": {
+    "labels": "labels_dir_plans.jsonl",
+    "base": {
+      "labels": "data/grid/labels_dir.jsonl",
+      "samples": 25000
+    },
+    "parts": [
+      {
+        "labels": "data/plans_mj/labels_dir.jsonl",
+        "samples": 37100,
+        "ok": 37100,
+        "image_prefix": "../plans_mj",
+        "dir": {
+          "0": 19715,
+          "1": 3724,
+          "2": 3921,
+          "3": 943,
+          "4": 723,
+          "5": 914,
+          "6": 3676,
+          "7": 3484
+        },
+        "action": {
+          "R": 5487,
+          "L": 5510,
+          "F": 26024,
+          "B": 79
+        }
+      }
+    ],
+    "base_meta": {
+      "labels": "labels_dir.jsonl",
+      "from": "labels.jsonl",
+      "samples": 25000,
+      "status": {
+        "ok": 25000
+      },
+      "layouts": {
+        "total": 1000,
+        "scene.json": 1000
+      },
+      "expert": {
+        "connectivity": 8,
+        "directions": [
+          [
+            1,
+            0
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            0,
+            1
+          ],
+          [
+            -1,
+            1
+          ],
+          [
+            -1,
+            0
+          ],
+          [
+            -1,
+            -1
+          ],
+          [
+            0,
+            -1
+          ],
+          [
+            1,
+            -1
+          ]
+        ],
+        "brake_dist": 1.5,
+        "costs": {
+          "backward": 3.0,
+          "clearance": 10.0,
+          "safe_dist": 1.0,
+          "ahead": 2.0,
+          "lookahead": 5.0,
+          "lane": 0.0,
+          "visibility": 0.0,
+          "vis_range": 3.0,
+          "vis_threshold": 0.5,
+          "fov_deg": 69.0,
+          "cam_x": 0.275
+        },
+        "grid": {
+          "cell": 0.2,
+          "margin": 0.1
+        },
+        "seed": 0
+      },
+      "directions": {
+        "train": {
+          "0": 14889,
+          "1": 1127,
+          "2": 1294,
+          "6": 1451,
+          "7": 1239
+        },
+        "val": {
+          "0": 1840,
+          "1": 156,
+          "2": 166,
+          "6": 186,
+          "7": 152
+        },
+        "test": {
+          "0": 1837,
+          "1": 148,
+          "2": 180,
+          "6": 176,
+          "7": 159
+        }
+      },
+      "speed_below_1": 609,
+      "ties": 10327,
+      "source_meta": {
+        "dataset": "data/grid",
+        "labels": "labels.jsonl",
+        "layouts": 1000,
+        "samples": 25000,
+        "status": {
+          "ok": 25000
+        },
+        "ties": 8315,
+        "infeasible_layouts": [],
+        "costs": {
+          "backward": 3.0,
+          "clearance": 2.0,
+          "safe_dist": 0.5,
+          "ahead": 2.0,
+          "lookahead": 5.0,
+          "lane": 0.0
+        },
+        "grid": {
+          "cell": 0.2,
+          "margin": 0.1
+        },
+        "split": {
+          "train": [
+            0,
+            799
+          ],
+          "val": [
+            800,
+            899
+          ],
+          "test": [
+            900,
+            999
+          ]
+        },
+        "actions": {
+          "train": {
+            "F": 17196,
+            "L": 1385,
+            "R": 1419
+          },
+          "val": {
+            "F": 2156,
+            "L": 181,
+            "R": 163
+          },
+          "test": {
+            "F": 2139,
+            "L": 178,
+            "R": 183
+          }
+        },
+        "generator": "72de20d-dirty"
+      }
+    },
+    "samples": 62100
+  },
+  "task": "dir",
+  "classes": [
+    "F",
+    "FL",
+    "L",
+    "BL",
+    "B",
+    "BR",
+    "R",
+    "FR"
+  ],
+  "class_weights": [
+    0.27334174513816833,
+    0.8158774375915527,
+    1.3095729351043701,
+    7.687129974365234,
+    9.724114418029785,
+    7.687129974365234,
+    1.3095729351043701,
+    0.8158774375915527
+  ],
+  "torch": "2.14.1+cu130",
+  "python": "3.13.16",
+  "gpu": "Tesla T4"
+}

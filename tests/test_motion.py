@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sim_core.motion import DirectionalMotion, DiscreteMotion, FilteredMotion  # noqa: E402
+from sim_core.motion import DirectionalMotion, DiscreteMotion, FilteredMotion, VelocityMotion  # noqa: E402
 
 STEP = 0.2
 
@@ -90,6 +90,18 @@ def test_directional_filter_slows_down():
     assert m.velocity[0] < 0.01 * v_fast
     m.reset()
     assert m.velocity == (0.0, 0.0)
+
+
+def test_velocity_motion():
+    m = VelocityMotion(step=STEP)
+    assert close(m.move(("0", 1.0, 0.0)), (STEP, 0.0))
+    assert close(m.move(("1", 0.5, 0.5)), (STEP / 2, STEP / 2))
+    assert close(m.move(("4", -3.0, 0.0)), (-STEP, 0.0))          # clipped to the unit disk
+    f = VelocityMotion(step=STEP, alpha=0.5)
+    f.move(("0", 1.0, 0.0)); f.move(("0", 1.0, 0.0))
+    for _ in range(10):
+        f.move(("0", 0.0, 0.0))
+    assert f.velocity[0] < 0.001
 
 
 if __name__ == "__main__":
