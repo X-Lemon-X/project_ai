@@ -6,6 +6,27 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — DAgger labeller
+
+**Done**
+- `dagger.py`: labels the frames that `drive.py --save-frames` saves with the
+  expert at the positions the robot was really at. It adds them as an extra
+  train part to the grid dataset (`labels_plus_<name>.jsonl` for `train.py`).
+  Repeated frames of a stuck robot are capped per lattice node. Pure-B labels
+  are kept but skipped in training.
+  → [training](knowledge/training.md#dagger-labels-daggerpy)
+- `sim_core.geometry.free_ahead`: the generator's `dist_ahead` formula, usable
+  without Isaac Sim.
+- Checks: `tests/test_dagger.py`. On 100 real layouts used as fake runs:
+  `dist_ahead` identical on all 2,500 samples, expert action identical to
+  `labels.jsonl` in 98.8 % (rest: snapping to the lattice).
+
+**Next**
+- On Patryk's PC: `drive.py --save-frames` with the current ResNet18 on about 50
+  layouts, then `dagger.py`, retrain, and evaluate on other layouts.
+
+---
+
 ## 2026-11-18 — Meeting with the supervisor: closed-loop problems
 
 **Discussed**

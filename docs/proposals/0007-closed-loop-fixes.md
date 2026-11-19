@@ -61,7 +61,8 @@ worse than the numbers suggest:
 `episodes.jsonl` stores the path and the obstacles of each episode. The expert
 can label any position from the geometry. A small script can pair each
 frame with its position, label it with the expert and append it to the
-dataset as an extra part. Then retrain. Repeat 2-3 times. This targets the
+dataset as an extra part. Then retrain. Repeat 2-3 times. **Done:** `dagger.py`, see
+[training](../knowledge/training.md#dagger-labels-daggerpy). This targets the
 stuck states directly: the robot oscillating in front of an obstacle produces
 many frames of exactly that situation, all labelled with one consistent side.
 Literature: [DAgger, DART](../knowledge/literature.md#imitation-learning-making-cloned-policies-robust).

@@ -86,6 +86,19 @@ def clip_band(poly, ylo, yhi):
     return clip(pts, lambda p: p[1] <= yhi, yhi) if pts else []
 
 
+def free_ahead(footprints, cx, cy, hx, hy):
+    """Free distance from the robot's front (body centre (cx, cy), half size hx, hy) to the first
+    footprint inside its own width; None = nothing ahead. Same formula as `dist_ahead` in scene_gen.py.
+    """
+    ahead = None
+    for poly in footprints:
+        part = clip_band(poly, cy - hy, cy + hy)
+        if part and min(p[0] for p in part) >= cx:
+            d = min(p[0] for p in part) - (cx + hx)
+            ahead = d if ahead is None else min(ahead, d)
+    return ahead
+
+
 def convex_hull(points):
     """Convex hull, counter-clockwise, no repeated end point (Andrew's monotone chain)."""
     pts = sorted(set(map(tuple, np.asarray(points, dtype=float))))

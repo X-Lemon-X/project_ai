@@ -33,6 +33,44 @@ B never occurs, so the network has 3 classes (L, F, R). 8,315 samples (33 %)
 have ties, mostly F = L or F = R in the far rows, and L = R with an obstacle
 dead ahead.
 
+## DAgger labels (`dagger.py`)
+
+Turns closed-loop runs into extra training data
+([0007 A](../proposals/0007-closed-loop-fixes.md#a-dagger-on-the-states-the-network-visits)).
+Plain Python + numpy, no Isaac Sim, no torch.
+
+```bash
+~/isaacsim/python.sh drive.py --model runs/resnet18/model.ts --count 50 --start 100000 --save-frames --headless
+python3 dagger.py runs/resnet18/drive --base data/grid --name dagger_r1
+python3 train.py --data data/grid --labels data/grid/labels_plus_dagger_r1.jsonl --out runs/resnet18_dagger_r1
+```
+
+- Reads `episodes.jsonl`, `eval.json` and `frames/` of each `drive.py` folder.
+  Frame k shows the robot at `path[k]`, so the expert labels exactly the
+  position the network was at.
+- Same expert settings as the base labels (`labels_meta.json`), goal at the road
+  end, as `label.py`. The positions are not grid samples, so they snap to the
+  nearest lattice node (`snap`, ≤ 0.14 m).
+- Output, inside the base dataset: images in `<base>/<name>/` (hard links, or
+  copies on another file system), `labels_<name>.jsonl` (new rows only) and
+  `labels_plus_<name>.jsonl` (base + new) with `_meta.json` files. All new rows
+  are `train`. Val / test stay the original grid layouts, so results remain
+  comparable.
+- Rows whose only best action is B get status `backward`: `train.py` skips them
+  (it trains L / F / R), but they are counted. This shows how often the expert would
+  back off in the states the network reaches.
+- `--max-per-node 3` (default): a robot stuck switching L/R gives many frames
+  of nearly the same position. At most 3 per episode and lattice node are kept.
+- `--policies net` (default): only the network's episodes.
+- Evaluate the retrained model on **other** layouts than the DAgger rollouts
+  (e.g. `drive.py --start 200000`).
+
+Checks (2026-11-19): `tests/test_dagger.py` (fake run, run it with `.venv/bin/python`). On 100 real
+grid layouts used as fake runs, `dist_ahead` equals `samples.jsonl` on all 2,500
+samples (`sim_core.geometry.free_ahead`, same formula as `scene_gen.py`).
+The expert's action equals `labels.jsonl` in 98.8 % of the samples and is among
+the original ties in 99.3 %. The rest differs because of the snapping.
+
 ## Model (`training/models.py`)
 
 `DecisionNet` = backbone → 512-d (ResNet18) features → two heads:
