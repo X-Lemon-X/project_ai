@@ -129,6 +129,31 @@ Feasibility check on all 1000 layouts, 25,000 grid samples, label settings as
   little further when close). That is the effect of the `ahead` and `clearance`
   terms, not of the directions.
 
+### Decision field (`view_field.py`): does it back off?
+
+```bash
+python3 view_field.py data/grid --layout 958 --expert 8 --zoom     # 4 = current expert; --save file.png
+```
+
+One arrow per lattice node, so it also shows positions between the grid samples
+and close to obstacles ([4 directions](../figures/2026-11-19_field_958_4dir.png),
+[8 directions](../figures/2026-11-19_field_958_8dir.png)). Over 100 test
+layouts (900–999), nodes with the obstacle ahead (free distance ahead < 2 m):
+
+| Gap to the obstacle | Expert | forward / diagonal-forward | sideways | backward | slowed (speed < 1) |
+|---|---|---|---|---|---|
+| 0–0.5 m | 4 directions | 2.1 % | 95.1 % | 2.8 % | — |
+| 0–0.5 m | 8 directions | 11.0 % | 84.4 % | 4.6 % | 29 % |
+| 0.5–1 m | 4 directions | 0.3 % | 99.1 % | 0.6 % | — |
+| 0.5–1 m | 8 directions | 16.3 % | 83.1 % | 0.6 % | 29 % |
+
+**It does not back off when it is close.** It steps sideways, because for a
+robot that can move sideways at any time, backing off only adds distance. The
+few backward moves are in notches between obstacles. The speed label does
+react near obstacles (29 % slowed within 1 m), but such positions never
+appear among the grid samples (every row is ≥ 1 m away), so it only matters
+for DAgger data.
+
 ## Speed
 
 Grid and Dijkstra take ≈ 38 ms per layout (pure Python heap). Labelling all

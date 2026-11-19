@@ -54,6 +54,7 @@ perfect and the data generation runs unattended.
 | `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons (also used by the generator), `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader, `motion.py` action → move (discrete or low-pass-filtered direction), `directional.py` prototype expert with 8 / 16 directions + speed. See `docs/knowledge/expert.md` |
 | `view_plan.py` | Top-down view of a layout: cost-to-go, blocked cells, expert decisions and paths. Plain Python + matplotlib |
 | `dagger.py` | DAgger labeller: labels the frames of `drive.py --save-frames` runs with the expert, adds them as a train part (`<data>/labels_plus_<name>.jsonl`). See `docs/knowledge/training.md` |
+| `view_field.py` | Decision field of an expert (one arrow per lattice node), current or directional. Plain Python + matplotlib |
 | `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
 | `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
 | `plot_runs.py` | Plots runs (learning curves, test metrics) from `config.json`, `metrics.csv`, `test_metrics.json`. Plain Python + matplotlib |
