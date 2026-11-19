@@ -106,6 +106,8 @@ def draw(ax, lay, which, costs, grid_kw, near, every, xlim):
     ax.tick_params(colors=INK_2, labelsize=8, length=0)
     name = "current expert (F / B / L / R)" if which == 4 else f"directional expert, {which} directions"
     name += f" | repulsion {costs.clearance:g} within {costs.safe_dist:g} m, backward weight {costs.backward:g}"
+    if costs.visibility:
+        name += f", visibility {costs.visibility:g}"
     n = max(1, sum(counts.values()))
     ax.set_title(f"layout {lay.id}: {name}\nNodes closer than {near:g} m to an obstacle: "
                  f"forward {counts['forward']}, sideways {counts['side']}, backward {counts['back']} "
@@ -131,6 +133,7 @@ def main():
     ap.add_argument("--clearance", type=float, help="repulsion weight (default: as in labels_meta.json)")
     ap.add_argument("--safe-dist", type=float, help="repulsion range [m]")
     ap.add_argument("--backward", type=float, help="weight of moves with a backward part")
+    ap.add_argument("--visibility", type=float, help="view-aware penalty weight (0008 C), 0 = off")
     ap.add_argument("--save", help="write the figure to this file instead of opening a window")
     a = ap.parse_args()
 
@@ -138,7 +141,7 @@ def main():
     meta_path = Path(a.root) / "labels_meta.json"
     meta = json.loads(meta_path.read_text()) if meta_path.exists() else {}
     costs = Costs(**meta["costs"]) if "costs" in meta else Costs()
-    for name in ("clearance", "safe_dist", "backward"):
+    for name in ("clearance", "safe_dist", "backward", "visibility"):
         if getattr(a, name) is not None:
             setattr(costs, name, getattr(a, name))
     grid_kw = meta.get("grid", {"cell": 0.2, "margin": 0.1})

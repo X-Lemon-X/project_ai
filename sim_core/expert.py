@@ -17,6 +17,12 @@ Cost of a step from a to b, in metres-equivalent:
     penalty(b)    : clearance * max(0, 1 - gap(b) / safe_dist)   (stay away from obstacles)
                   + ahead   * max(0, 1 - free_ahead(b) / lookahead)   (dodge early, not at the last moment)
                   + lane   * |y(b) - nearest lane centre| / (lane_width / 2)   (Q6, off by default)
+                  + visibility * max(0, (covered(b) - vis_threshold) / (1 - vis_threshold))   (off by default)
+
+covered(b): share of the camera's horizontal field of view taken up by obstacles
+within vis_range of the camera (docs/proposals/0008 C). Close to an obstacle the image
+shows only the obstacle, not the free side, so the memoryless network can't tell which
+way to go; the penalty makes the expert prefer positions where the way out is visible.
 
 Tie-break (written down so labels stay consistent, see docs/decisions.md):
 among actions whose cost is within `tie_tol` of the best, prefer F, then the
@@ -44,6 +50,11 @@ class Costs:
     ahead: float = 2.0          # extra cost per metre when the robot's lane is blocked right ahead
     lookahead: float = 5.0      # free distance ahead [m] beyond which the ahead penalty is 0
     lane: float = 0.0           # lane-centre penalty (open question Q6), 0 = off
+    visibility: float = 0.0     # view-aware penalty (0008 C), 0 = off
+    vis_range: float = 3.0      # obstacles closer than this to the camera [m] count
+    vis_threshold: float = 0.5  # covered share of the field of view at which the penalty starts
+    fov_deg: float = 69.0       # camera horizontal field of view (run.json camera.hfov_deg)
+    cam_x: float = 0.275        # camera ahead of the body centre [m] (run.json camera.offset[0])
 
 
 @dataclass
@@ -68,6 +79,52 @@ class Path:
     @property
     def reached(self):
         return self.status == "goal"
+
+
+def view_covered(world, grid, costs):
+    """(nx, ny) share of the horizontal field of view covered by obstacles within costs.vis_range.
+
+    Camera at (x + cam_x, y), looking along +x. Each obstacle is the angular interval of its
+    footprint corners as seen from the camera (corners beside or behind the camera count as
+    +-90 deg); the covered share is the union of these intervals clipped to the field of view.
+    Occlusion and obstacle heights are ignored.
+    """
+    from .geometry import points_to_convex_distance
+    half = math.radians(costs.fov_deg) / 2
+    X, Y = np.meshgrid(grid.xs, grid.ys, indexing="ij")
+    cx, cy = X.ravel() + costs.cam_x, Y.ravel()
+    cam = np.stack([cx, cy], axis=1)
+    intervals = []
+    for o in world.obstacles:
+        poly = np.asarray(o.footprint, dtype=float)
+        near = points_to_convex_distance(cam, poly) <= costs.vis_range
+        dx = poly[None, :, 0] - cx[:, None]
+        dy = poly[None, :, 1] - cy[:, None]
+        ang = np.where(dx > 0.05, np.arctan2(dy, dx), np.sign(dy) * (math.pi / 2))
+        lo = np.clip(ang.min(axis=1), -half, half)
+        hi = np.clip(ang.max(axis=1), -half, half)
+        ahead = (dx > 0.05).any(axis=1)
+        valid = near & ahead & (hi > lo)
+        intervals.append((np.where(valid, lo, 0.0), np.where(valid, hi, 0.0), valid))
+    # union length of up to K intervals per node: sort by start, sweep
+    lo = np.stack([i[0] for i in intervals], axis=1)
+    hi = np.stack([i[1] for i in intervals], axis=1)
+    ok = np.stack([i[2] for i in intervals], axis=1)
+    lo = np.where(ok, lo, np.inf)
+    hi = np.where(ok, hi, -np.inf)
+    order = np.argsort(lo, axis=1)
+    lo = np.take_along_axis(lo, order, axis=1)
+    hi = np.take_along_axis(hi, order, axis=1)
+    total = np.zeros(len(cx))
+    cur_lo = lo[:, 0].copy()
+    cur_hi = hi[:, 0].copy()
+    for k in range(1, lo.shape[1]):
+        new = lo[:, k] > cur_hi                              # gap: close the current interval
+        total += np.where(new & np.isfinite(cur_lo), cur_hi - cur_lo, 0.0)
+        cur_lo = np.where(new, lo[:, k], cur_lo)
+        cur_hi = np.where(new, hi[:, k], np.maximum(cur_hi, hi[:, k]))
+    total += np.where(np.isfinite(cur_lo), cur_hi - cur_lo, 0.0)
+    return (total / (2 * half)).reshape(X.shape)
 
 
 class Expert:
@@ -97,6 +154,9 @@ class Expert:
             lanes = np.asarray(self.world.lane_centers)
             off = np.abs(g.ys[:, None] - lanes[None, :]).min(axis=1) / (self.world.lane_width / 2)
             pen += c.lane * off[None, :]
+        if c.visibility > 0 and self.world.obstacles:
+            cov = view_covered(self.world, g, c)
+            pen += c.visibility * np.clip((cov - c.vis_threshold) / max(1e-9, 1 - c.vis_threshold), 0.0, 1.0)
         return pen
 
     def step_cost(self, action, to_node):

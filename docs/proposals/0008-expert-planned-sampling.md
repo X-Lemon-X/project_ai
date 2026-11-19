@@ -2,6 +2,14 @@
 
 Status: draft · Date: 2026-11-19
 
+**Progress (2026-11-19):** A (hot spots), B (sequences) and C (view-aware
+term) are implemented in `sim_core/planning.py`, `plan_samples.py` and
+`Costs.visibility`, and checked on the existing layouts
+([expert](../knowledge/expert.md#planned-sampling-plan_samplespy-sim_coreplanningpy-2026-11-19)).
+Rendering the plans is **on hold** until we decide about a MuJoCo renderer (Q19).
+C turned out mostly redundant with the tuned repulsion
+([expert](../knowledge/expert.md#view-aware-term-costsvisibility-2026-11-19)).
+
 Ideas from 2026-11-19 (Bartosz), building on
 [0007](0007-closed-loop-fixes.md) and the directional expert
 ([expert](../knowledge/expert.md#directional-expert-prototype-sim_coredirectionalpy)).

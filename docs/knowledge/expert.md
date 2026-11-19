@@ -193,6 +193,76 @@ The path columns are for a path from y = 0, 8 m before the first obstacle:
   because every row is ≥ 1 m from the obstacles. Back-off labels need samples
   closer than that: DAgger rollouts, or a generator run with `--near` < 1 m.
 
+## View-aware term (`Costs.visibility`, 2026-11-19)
+
+Penalty for positions where obstacles within `vis_range` (3 m) of the camera
+cover more than `vis_threshold` (50 %) of the 69° field of view
+([0008 C](../proposals/0008-expert-planned-sampling.md#c-view-aware-expert-backing-off-to-see-more)):
+`visibility · max(0, (covered − 0.5) / 0.5)`. `covered` is the union of the
+obstacles' angular intervals seen from the camera (occlusion and heights
+ignored). It matches the hand-computed angle of a box face (test in
+`tests/test_planning.py`). **Off by default** (`visibility = 0`), so existing labels
+are unchanged.
+
+Effect (8 directions, 30 test layouts, share of positions with the obstacle ahead
+that back off):
+
+| Base repulsion | visibility 0 | 5 | 10 | 20 | 50 |
+|---|---|---|---|---|---|
+| tuned (10 / 1.0 m), gap < 0.5 m | 52.5 % | 52.5 % | 52.6 % | 51.6 % | — |
+| current (2 / 0.5 m), gap 0.5–1 m | 0 % | 0.6 % | 1.2 % | 2.4 % | 6.5 % |
+
+The paths don't change at all. **With these definitions the term is mostly
+redundant:** more than half of the view is covered only very close to an
+obstacle (median gap 0.63 m for cubes), where the tuned repulsion already
+backs off, and the expert's own path dodges early and never gets there. Only
+wide walls cover the view from further away (up to 2.5 m). Kept as an option.
+A stronger version would have to measure whether the *free side* is visible,
+not only how much of the view is covered.
+
+## Planned sampling (`plan_samples.py`, `sim_core/planning.py`, 2026-11-19)
+
+Chooses the positions to render from the geometry only
+([0008 A, B](../proposals/0008-expert-planned-sampling.md)), using the
+directional expert with the tuned repulsion (8 directions, clearance 10,
+safe_dist 1.0).
+
+```bash
+python3 plan_samples.py data/grid --layouts 900-999 --out data/plans/v1 --figure plan.png
+```
+
+- **Importance** of a node: `min(2, cost(forward) − cost(best)) / 2` (how
+  costly it is to just drive on) + 0.5 if a neighbouring node has a different
+  kind of best move (forward / left / right / back), i.e. the decision boundary.
+- **Hot spots** (25 per layout): drawn ∝ importance, 20 % uniform, ≥ 0.3 m apart,
+  in the region from 10 m before the first obstacle to 2 m after the last one.
+- **Start sequence** (1 × up to 60 frames): the expert's run from 6 m before
+  the first obstacle, with DART perturbations (ε = 0.2: random allowed
+  direction executed, label = the expert's move).
+- **Recovery sequences** (2 × up to 20 frames): start in the back-off zone
+  (≥ 1 m apart), then the expert's run with perturbations.
+- Output per layout: `layout_XXXXXX.json` with the planned samples (kind,
+  sequence, step, position, expert direction and move kind, executed
+  direction, importance), plus `plan_meta.json`.
+
+On the 100 test layouts (900–999), ~123 planned samples per layout:
+
+| Samples | straight on | diagonal | sideways | back |
+|---|---|---|---|---|
+| 5 × 5 grid (same expert) | 73.5 % | 12.3 % | 14.2 % | **0 %** |
+| planned, all | 51.4 % | 20.0 % | 21.3 % | **7.3 %** |
+| – hot spots | 16.4 % | 22.5 % | 47.5 % | 13.6 % |
+| – start sequences | 79.2 % | 19.3 % | 1.5 % | 0 % |
+| – recovery sequences | 30.4 % | 19.6 % | 35.4 % | 14.6 % |
+
+Figures: [layout 958](../figures/2026-11-19_plan_958.png),
+[layout 900](../figures/2026-11-19_plan_900.png). Planning 100 layouts takes
+~30 s (12 processes).
+
+**Not rendered yet:** needs the layout sampling moved into `sim_core` and
+`scene_gen.py --positions` (0008, on hold while a MuJoCo renderer is considered,
+Q19).
+
 ## Speed
 
 Grid and Dijkstra take ≈ 38 ms per layout (pure Python heap). Labelling all

@@ -6,6 +6,25 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Planned sampling and view-aware term
+
+**Done**
+- `sim_core/planning.py` + `plan_samples.py`: plan hot spots and sequences per layout
+  from the geometry, before rendering ([0008](proposals/0008-expert-planned-sampling.md)).
+  On 100 test layouts the planned samples contain 7.3 % back-off labels (the 5 × 5
+  grid: 0 %), only 51 % straight-on (grid: 74 %), and the recovery
+  sequences start in the back-off zone. → [expert](knowledge/expert.md#planned-sampling-plan_samplespy-sim_coreplanningpy-2026-11-19)
+- `Costs.visibility`: view-aware penalty (obstacles covering > 50 % of the view).
+  Off by default. It hardly changes decisions: the tuned repulsion already backs
+  off where the view is blocked.
+- Tests: `tests/test_planning.py`.
+
+**On hold**
+- Rendering the plans (`scene_gen.py --positions`, layout sampling in `sim_core`):
+  waits for the MuJoCo decision (Q19).
+
+---
+
 ## 2026-11-19 — Directional expert (prototype)
 
 **Done**
