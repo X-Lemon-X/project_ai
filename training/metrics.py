@@ -19,12 +19,17 @@ from .dataset import CLASSES
 
 
 @torch.no_grad()
-def decision_metrics(logits, target, costs, label, aux_pred=None, aux_true=None):
+def decision_metrics(logits, target, costs, label, aux_pred=None, aux_true=None, classes=CLASSES):
+    """classes: class names in output order (L / F / R, or the 8 directions of the dir task).
+
+    bal_acc averages the recall over the classes that occur in the data. With an aux of two
+    columns (dir task) speed_mae is the error of the predicted speed.
+    """
     pred = logits.argmax(1)
     hit = target.gather(1, pred[:, None]).squeeze(1) > 0
     out = {"acc": hit.float().mean().item()}
     recalls = []
-    for k, c in enumerate(CLASSES):
+    for k, c in enumerate(classes):
         m = label == k
         r = hit[m].float().mean().item() if m.any() else float("nan")
         out[f"recall_{c}"] = r
@@ -40,8 +45,10 @@ def decision_metrics(logits, target, costs, label, aux_pred=None, aux_true=None)
 
     if aux_pred is not None:
         out["dist_mae"] = (aux_pred[:, 0].exp() - aux_true[:, 0].exp()).abs().mean().item()
+        if aux_pred.shape[1] > 1:
+            out["speed_mae"] = (aux_pred[:, 1].clamp(0, 1) - aux_true[:, 1]).abs().mean().item()
 
-    conf = torch.zeros(len(CLASSES), len(CLASSES), dtype=torch.long)
+    conf = torch.zeros(len(classes), len(classes), dtype=torch.long)
     conf.index_put_((label.cpu(), pred.cpu()), torch.ones_like(label.cpu()), accumulate=True)
     out["confusion"] = conf.tolist()
     return out

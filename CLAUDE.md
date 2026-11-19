@@ -59,10 +59,11 @@ perfect and the data generation runs unattended.
 | `dagger.py` | DAgger labeller: labels the frames of `drive.py --save-frames` runs with the expert, adds them as a train part (`<data>/labels_plus_<name>.jsonl`). See `docs/knowledge/training.md` |
 | `plan_samples.py` | Plans which positions to render (hot spots, start and recovery sequences) from the geometry, with the directional expert. Uses `sim_core/planning.py` |
 | `view_field.py` | Decision field of an expert (one arrow per lattice node), current or directional. Plain Python + matplotlib |
+| `label_directions.py` | 8-direction + speed labels (tuned directional expert) for any labels file → `<labels>_dir.jsonl`, for `train.py --task dir` |
 | `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
 | `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
 | `plot_runs.py` | Plots runs (learning curves, test metrics) from `config.json`, `metrics.csv`, `test_metrics.json`. Plain Python + matplotlib |
-| `tests/` | Checks of simulator-free code: `python tests/test_motion.py`, `tests/test_dagger.py`, `tests/test_directional.py`, `tests/test_planning.py`, `tests/test_layout.py`, `tests/test_closed_loop.py` |
+| `tests/` | Checks of simulator-free code: `python tests/test_motion.py`, `tests/test_dagger.py`, `tests/test_directional.py`, `tests/test_planning.py`, `tests/test_layout.py`, `tests/test_closed_loop.py`, `tests/test_training_dir.py` |
 | `requirements-train.txt` | Python packages for labelling and training (not needed for Isaac Sim) |
 | `runs/` | Training runs (checkpoints, metrics, `model.ts`). Git-ignored |
 | `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |

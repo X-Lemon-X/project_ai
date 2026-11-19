@@ -71,6 +71,52 @@ samples (`sim_core.geometry.free_ahead`, same formula as `scene_gen.py`).
 The expert's action equals `labels.jsonl` in 98.8 % of the samples and is among
 the original ties in 99.3 %. The rest differs because of the snapping.
 
+## Direction model (`--task dir`, 2026-11-19)
+
+Step 2 of [0007 D](../proposals/0007-closed-loop-fixes.md#d-output-as-direction--speed):
+instead of L / F / R, the network picks one of 8 directions and a speed.
+
+```bash
+python3 label_directions.py data/grid/labels.jsonl                    # -> labels_dir.jsonl (~1 min)
+python3 label_directions.py data/grid/labels_plus_dagger_r1.jsonl     # -> labels_plus_dagger_r1_dir.jsonl
+python3 train.py --data data/grid --labels data/grid/labels_dir.jsonl --task dir --out runs/dir_001
+python3 drive_mujoco.py --model runs/dir_001/model.ts --directional --count 100 [--filter-alpha 0.7]
+```
+
+- **Labels** (`label_directions.py`): the directional expert with 8 directions and the
+  tuned repulsion (clearance 10, safe_dist 1.0, backward 3,
+  [expert](expert.md#tuning-the-repulsion-so-that-it-backs-off-2026-11-19)) on every row of a
+  labels file. Adds `dir` (index into `DIRS8`: 0 F, 1 FL, 2 L, 3 BL, 4 B, 5 BR, 6 R, 7 FR),
+  `dir_ties`, `dir_costs`, `speed`. Layouts from `scene.json`, or from the seed
+  (`sim_core.layout`) for rows of drive runs, e.g. DAgger frames.
+- **Network**: same backbones, action head with 8 outputs, aux head with 2 outputs
+  (log distance ahead, speed). `model.ts` still returns `(logits, aux)`. Targets are
+  tie-aware over the 8 directions (or soft from `dir_costs` with `--soft-temp`). Mirroring
+  maps FL ↔ FR, L ↔ R, BL ↔ BR. Class weights average mirrored classes.
+- **Metrics**: as for L / F / R, generalised to the classes present. `bal_acc` averages the
+  recall of the directions that occur. Plus `speed_mae`.
+- **Driving**: `closed_loop.NetPolicy` detects the 8 outputs. `sim_core.motion.DirectionalMotion`
+  moves `step · speed` along the direction and low-pass filters the **velocity vector**
+  (`--filter-alpha`), so a slow-down really slows the robot. `direxpert` = the directional
+  expert as a policy: 20/20 layouts with and without filter (MuJoCo).
+
+Label mix with this expert:
+
+| Labels | F | FL + FR | L + R | back (BL, B, BR) | speed < 1 |
+|---|---|---|---|---|---|
+| grid (`labels_dir.jsonl`, train) | 74.4 % | 11.8 % | 13.8 % | **0** | 2.4 % |
+| grid + DAgger r1 (train) | 78.8 % | 11.1 % | 10.0 % | **0** | 2.5 % |
+
+**No backward labels yet**, not even in the DAgger frames: the network's collisions
+happened beside obstacles, never in the back-off zone in front of them. The three back
+classes stay empty until planned recovery sequences
+([0008 B](../proposals/0008-expert-planned-sampling.md#b-sequences)) are rendered, now
+possible in MuJoCo.
+
+Checks: `tests/test_training_dir.py` (targets, mirror permutation = direction
+geometry), `tests/test_motion.py` (DirectionalMotion). A CPU run of the L / F / R task gives
+exactly the numbers it gave before the change.
+
 ## Model (`training/models.py`)
 
 `DecisionNet` = backbone → 512-d (ResNet18) features → two heads:

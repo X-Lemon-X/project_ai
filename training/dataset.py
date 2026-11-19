@@ -1,6 +1,8 @@
 """PyTorch dataset over a grid dataset labelled by label.py.
 
-Each item is (image, target, aux, costs, label):
+Each item is (image, target, aux, costs, label). Task "lfr" (default) as below; task "dir"
+(train.py --task dir, labels from label_directions.py): 8 direction classes (TASKS["dir"]),
+target / costs over them, aux = [log distance ahead, speed]:
 
     image   float32 [3, H, W] in [0, 1] (the model normalises itself, see models.py)
     target  float32 [3] probabilities over CLASSES = (L, F, R)
@@ -33,6 +35,14 @@ CLASSES = ("L", "F", "R")
 FLIP = [2, 1, 0]                 # index permutation that swaps L and R
 AHEAD_MIN, AHEAD_MAX = 0.1, 12.0
 
+# Tasks: "lfr" = L / F / R from label.py; "dir" = 8 directions + speed from label_directions.py
+# (sim_core.directional.DIRS8 order: forward, forward-left, left, back-left, back, back-right,
+# right, forward-right). flip = index permutation of a left-right mirrored image.
+TASKS = {
+    "lfr": {"classes": CLASSES, "flip": FLIP, "aux": 1},
+    "dir": {"classes": ("F", "FL", "L", "BL", "B", "BR", "R", "FR"), "flip": [0, 7, 6, 5, 4, 3, 2, 1], "aux": 2},
+}
+
 
 def load_labels(path, splits=None, status=("ok",)):
     """Rows of labels.jsonl, optionally only some splits; only trainable rows by default."""
@@ -45,33 +55,44 @@ def load_labels(path, splits=None, status=("ok",)):
     return rows
 
 
-def class_target(row, soft_temp=0.0):
-    costs = np.array([math.inf if row["costs"][a] is None else row["costs"][a] for a in CLASSES])
+def class_target(row, soft_temp=0.0, task="lfr"):
+    if task == "dir":
+        costs = np.array([math.inf if c is None else c for c in row["dir_costs"]])
+        best = row["dir_ties"] or [row["dir"]]
+    else:
+        costs = np.array([math.inf if row["costs"][a] is None else row["costs"][a] for a in CLASSES])
+        best = [CLASSES.index(a) for a in row["ties"] if a in CLASSES] or [CLASSES.index(row["action"])]
     if soft_temp > 0 and np.isfinite(costs).any():
         z = -(costs - costs.min()) / soft_temp
         p = np.exp(z - z.max())
         return (p / p.sum()).astype(np.float32), costs.astype(np.float32)
-    best = [a for a in row["ties"] if a in CLASSES] or [row["action"]]
-    t = np.array([1.0 if a in best else 0.0 for a in CLASSES], dtype=np.float32)
+    t = np.zeros(len(costs), dtype=np.float32)
+    t[best] = 1.0
     return t / t.sum(), costs.astype(np.float32)
 
 
-def aux_target(row):
+def aux_target(row, task="lfr"):
+    """[log free distance ahead] (+ [speed 0..1] for the dir task)."""
     d = row["dist_ahead"]
     d = AHEAD_MAX if d is None else min(max(d, AHEAD_MIN), AHEAD_MAX)
+    if task == "dir":
+        return np.array([math.log(d), row["speed"]], dtype=np.float32)
     return np.array([math.log(d)], dtype=np.float32)
 
 
 class DecisionDataset(Dataset):
-    def __init__(self, root, rows, augment=False, soft_temp=0.0, flip_p=0.5, jitter=0.2, preload=False):
+    def __init__(self, root, rows, augment=False, soft_temp=0.0, flip_p=0.5, jitter=0.2, preload=False, task="lfr"):
         self.root = Path(root)
         self.rows = rows
+        self.task = task
+        self.flip = TASKS[task]["flip"]
         self.augment = augment
         self.flip_p = flip_p
         self.jitter = jitter
-        self.targets, self.costs = zip(*(class_target(r, soft_temp) for r in rows)) if rows else ((), ())
-        self.aux = [aux_target(r) for r in rows]
-        self.labels = [CLASSES.index(r["action"]) for r in rows]     # expert action after the tie-break
+        self.targets, self.costs = zip(*(class_target(r, soft_temp, task) for r in rows)) if rows else ((), ())
+        self.aux = [aux_target(r, task) for r in rows]
+        # expert action after the tie-break (for per-class recall)
+        self.labels = [r["dir"] if task == "dir" else CLASSES.index(r["action"]) for r in rows]
         self.images = [self._read(i) for i in range(len(rows))] if preload else None
 
     def __len__(self):
@@ -94,12 +115,12 @@ class DecisionDataset(Dataset):
             if torch.rand(()) < self.flip_p:
                 flipped = True
                 img = img.flip(-1)
-                target, costs = target[FLIP], costs[FLIP]
+                target, costs = target[self.flip], costs[self.flip]
             if self.jitter > 0:
                 img = color_jitter(img, self.jitter)
         label = self.labels[i]
         if self.augment and flipped:
-            label = FLIP[label]
+            label = self.flip[label]
         return img, target, torch.from_numpy(self.aux[i]), costs, label
 
 

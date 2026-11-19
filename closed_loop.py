@@ -19,9 +19,13 @@ from collections import Counter
 
 import numpy as np
 
-from sim_core import Expert
+from sim_core import Costs, Expert
+from sim_core.directional import DirectionalExpert
 
 CLASSES = ("L", "F", "R")  # network output order, as training/dataset.py
+# Direction model (train.py --task dir): 8 outputs = sim_core.directional.DIRS8, actions are
+# (k, speed); episodes record k as one character "0".."7" (0 = F, 2 = L, 4 = B, 6 = R).
+DIR_COSTS = Costs(clearance=10.0, safe_dist=1.0, backward=3.0)   # as label_directions.py
 
 
 # ---------------------------------------------------------------- policies
@@ -45,8 +49,22 @@ class NetPolicy:
             t = t.permute(2, 0, 1).unsqueeze(0).float() / 255.0
             logits, aux = self.model(t)
             p = torch.softmax(logits.float(), dim=1)[0].cpu().numpy()
+            aux = aux.float()[0].cpu().numpy()
         k = int(p.argmax())
-        return CLASSES[k], {"p": [round(float(v), 4) for v in p], "aux": round(float(aux.flatten()[0]), 4)}
+        extra = {"p": [round(float(v), 4) for v in p], "aux": round(float(aux[0]), 4)}
+        if len(p) == 8:                                   # direction model: (direction, speed)
+            speed = float(min(1.0, max(0.0, aux[1]))) if len(aux) > 1 else 1.0
+            extra["speed"] = round(speed, 4)
+            return (str(k), speed), extra
+        return CLASSES[k], extra
+
+    @property
+    def directional(self):
+        """True for a model with 8 direction outputs (train.py --task dir)."""
+        torch = self.torch
+        with torch.no_grad():
+            logits, _ = self.model(torch.zeros(1, 3, 224, 224, device=self.device))
+        return logits.shape[1] == 8
 
 
 class ExpertPolicy:
@@ -77,6 +95,29 @@ class ExpertPolicy:
         return action, extra
 
 
+class DirExpertPolicy:
+    """The directional expert (8 directions + speed, tuned repulsion) as a policy."""
+    name = "direxpert"
+
+    def __init__(self, costs=None):
+        self.costs = costs or DIR_COSTS
+        self.expert = None
+
+    def reset(self, world, goal_x):
+        self.expert = DirectionalExpert(world, costs=self.costs, goal_x=goal_x, connectivity=8,
+                                        align_to_samples=False)
+
+    def act(self, image, x, y, can_move=None):
+        d = self.expert.decide(x, y)
+        if d.status != "ok":
+            return ("0", 1.0), {"status": d.status}
+        order = sorted((k for k, c in enumerate(d.costs) if math.isfinite(c)), key=lambda k: d.costs[k])
+        k = d.best
+        if can_move is not None and not can_move((str(k), d.speed)):
+            k = next((j for j in order if can_move((str(j), d.speed))), k)
+        return (str(k), d.speed), {"speed": round(d.speed, 4)}
+
+
 class ForwardPolicy:
     name = "forward"
 
@@ -94,6 +135,8 @@ def make_policies(names, model=None, device=None):
             out.append(NetPolicy(model, device))
         elif name == "expert":
             out.append(ExpertPolicy())
+        elif name == "direxpert":
+            out.append(DirExpertPolicy())
         else:
             out.append(ForwardPolicy())
     return out
@@ -134,7 +177,7 @@ def run_episode(policy, motion, world, render, goal_x, start, step, max_steps=0,
         image = render(x, y)
         if frames_dir:
             Image.fromarray(image).save(frames_dir / f"{k:04d}.png")
-        if isinstance(policy, ExpertPolicy):
+        if isinstance(policy, (ExpertPolicy, DirExpertPolicy)):
             def can_move(a, x=x, y=y):
                 dx, dy = copy.deepcopy(motion).move(a)        # copy: the filtered motion has a state
                 return check_segment(world, (x, y), (x + dx, y + dy)) is None
@@ -146,7 +189,7 @@ def run_episode(policy, motion, world, render, goal_x, start, step, max_steps=0,
         outcome = check_segment(world, (x, y), nxt)
         x, y = nxt
         points.append((x, y))
-        actions.append(action)
+        actions.append(action if isinstance(action, str) else action[0])
         extras.append(extra)
         if on_step:
             on_step(x, y, action)

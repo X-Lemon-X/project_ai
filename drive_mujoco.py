@@ -29,7 +29,7 @@ import numpy as np
 from closed_loop import episode_goal, make_policies, run_episode, summarize
 from sim_core import World
 from sim_core.layout import sample_layout
-from sim_core.motion import DiscreteMotion, FilteredMotion
+from sim_core.motion import DirectionalMotion, DiscreteMotion, FilteredMotion
 
 HALF_SIZE = [0.5374960117042066, 0.5235000565226859]   # robot half size, data/grid/run.json
 
@@ -98,7 +98,8 @@ class Viewer:
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--model", help="TorchScript model.ts from train.py (needed for --policy net)")
-    ap.add_argument("--policy", nargs="+", default=["net"], choices=["net", "expert", "forward"])
+    ap.add_argument("--policy", nargs="+", default=["net"], choices=["net", "expert", "direxpert", "forward"],
+                    help="direxpert = 8-direction expert with speed (needs --directional)")
     ap.add_argument("--count", type=int, default=10, help="number of layouts (episodes per policy)")
     ap.add_argument("--start", type=int, default=100000, help="first layout index (keep outside the dataset)")
     ap.add_argument("--seed", type=int, default=0, help="base seed: layout seed = seed * 1e6 + layout")
@@ -108,7 +109,12 @@ def main():
     ap.add_argument("--side-step", type=float, default=0.2, help="sideways move of one L / R step [m]")
     ap.add_argument("--side-forward", type=float, default=0.0, help="forward part of an L / R step [m]")
     ap.add_argument("--filter-alpha", type=float, default=None,
-                    help="low-pass filtered directions instead of discrete steps (sim_core/motion.py)")
+                    help="low-pass filtered directions instead of discrete steps (sim_core/motion.py); "
+                         "with --directional it filters the velocity")
+    ap.add_argument("--directional", action="store_true",
+                    help="8-direction actions (direction model from train.py --task dir, or direxpert)")
+    ap.add_argument("--no-speed", action="store_true", help="with --directional: ignore the speed, full steps")
+    ap.add_argument("--min-speed", type=float, default=0.0, help="with --directional: lowest speed used")
     ap.add_argument("--start-x", type=float, default=-17.0)
     ap.add_argument("--start-y", type=float, default=0.0)
     ap.add_argument("--goal-after", type=float, default=1.0,
@@ -131,9 +137,19 @@ def main():
 
     out = Path(a.out) if a.out else (Path(a.model).parent / "drive_mujoco" if a.model else Path("runs/drive_mujoco"))
     out.mkdir(parents=True, exist_ok=True)
+    allowed = {"net", "direxpert"} if a.directional else {"net", "expert", "forward"}
+    if set(a.policy) - allowed:
+        ap.error(f"with{'' if a.directional else 'out'} --directional the policies are {sorted(allowed)}")
     policies = make_policies(a.policy, a.model, a.device)
-    motion = (DiscreteMotion(a.step, a.side_step, a.side_forward) if a.filter_alpha is None
-              else FilteredMotion(a.step, a.filter_alpha))
+    for p in policies:
+        if p.name == "net" and p.directional != a.directional:
+            ap.error("the model has 8 direction outputs: use --directional" if p.directional
+                     else "the model has L / F / R outputs: drop --directional")
+    if a.directional:
+        motion = DirectionalMotion(a.step, a.filter_alpha or 0.0, not a.no_speed, a.min_speed)
+    else:
+        motion = (DiscreteMotion(a.step, a.side_step, a.side_forward) if a.filter_alpha is None
+                  else FilteredMotion(a.step, a.filter_alpha))
     road = {"width": 4.0, "lane_width": 2.0, "length": 40.0, "shoulder": a.shoulder}
 
     results = {p.name: [] for p in policies}

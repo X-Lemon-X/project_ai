@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sim_core.motion import DiscreteMotion, FilteredMotion  # noqa: E402
+from sim_core.motion import DirectionalMotion, DiscreteMotion, FilteredMotion  # noqa: E402
 
 STEP = 0.2
 
@@ -69,6 +69,27 @@ def test_bad_alpha_and_action_are_rejected():
     except ValueError:
         return
     raise AssertionError("unknown action accepted")
+
+
+def test_directional_motion():
+    m = DirectionalMotion(step=STEP)
+    assert close(m.move((0, 1.0)), (STEP, 0.0))
+    r = STEP / math.sqrt(2)
+    assert close(m.move((1, 1.0)), (r, r))                 # forward-left
+    assert close(m.move((4, 0.5)), (-STEP / 2, 0.0))        # back at half speed
+    assert close(DirectionalMotion(step=STEP, use_speed=False).move((6, 0.1)), (0.0, -STEP))
+
+
+def test_directional_filter_slows_down():
+    m = DirectionalMotion(step=STEP, alpha=0.5)
+    assert close(m.move((0, 1.0)), (STEP / 2, 0.0))         # starts from rest
+    m.move((0, 1.0)); m.move((0, 1.0))
+    v_fast = m.velocity[0]
+    for _ in range(10):
+        m.move((0, 0.0))                                   # policy says stop
+    assert m.velocity[0] < 0.01 * v_fast
+    m.reset()
+    assert m.velocity == (0.0, 0.0)
 
 
 if __name__ == "__main__":

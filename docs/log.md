@@ -6,6 +6,24 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Direction model: labels, training, driving (step 2 of 0007 D)
+
+**Done** (branch `feature/direction-model`)
+- `label_directions.py`: 8-direction + speed labels from the tuned directional expert, for
+  any labels file (grid, grid + DAgger). Grid: F 74 %, diagonal 12 %, sideways 14 %, back 0.
+- `train.py --task dir`: 8 direction logits, aux = (log distance, speed), mirrored directions,
+  generic metrics. L / F / R training is unchanged (same numbers on a CPU check).
+- `DirectionalMotion` (velocity low-pass filter), direction support in `closed_loop.py`,
+  `drive_mujoco.py --directional`, policy `direxpert`: 20/20 in MuJoCo.
+- Tests: `tests/test_training_dir.py`, `tests/test_motion.py`.
+  → [training](knowledge/training.md#direction-model---task-dir-2026-11-19)
+
+**Next**
+- Train `--task dir` on Colab (after the DAgger runs), evaluate with `drive_mujoco.py --directional`.
+- Backward labels: render planned recovery sequences (0008 B) in MuJoCo.
+
+---
+
 ## 2026-11-19 — DAgger round 1 in MuJoCo: data
 
 **Done**

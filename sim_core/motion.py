@@ -3,6 +3,8 @@
 Heading stays 0 deg (facing +X); the move is a translation, "left" = +Y.
 
 DiscreteMotion  every action is a fixed step, as in the expert's labels.
+DirectionalMotion  for the 8-direction model: (direction, speed) -> a step along the direction,
+                scaled by the speed, optionally low-pass filtered as a velocity vector.
 FilteredMotion  each action is a direction (F = 0, L = +pi/2, R = -pi/2); a first-order
                 IIR low-pass filter smooths that direction over the steps, and the robot
                 moves a fixed distance along the filtered direction. Mixed decisions
@@ -57,3 +59,43 @@ class FilteredMotion:
         # Plain averaging of angles is safe here: all targets lie in [-pi/2, pi/2], no wrap-around.
         self.angle = self.alpha * self.angle + (1.0 - self.alpha) * ACTION_ANGLE[action]
         return self.step * math.cos(self.angle), self.step * math.sin(self.angle)
+
+
+DIRECTION_ANGLE = [math.atan2(dj, di) for di, dj in ((1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1))]
+# index k = direction k of sim_core.directional.DIRS8 (lattice dx ~ dy, so multiples of 45 deg)
+
+
+@dataclass
+class DirectionalMotion:
+    """Moves for the direction model: action = (k, speed), k = DIRS8 index, speed 0..1.
+
+    The velocity step * speed * (cos a_k, sin a_k) is low-pass filtered as a vector
+    (v <- alpha * v + (1 - alpha) * target, reset to 0 per episode), so a "slow down"
+    or "back off" of the policy actually slows the robot, unlike filtering the angle
+    alone (FilteredMotion). alpha = 0: no smoothing. use_speed = False moves the full
+    step every time (direction only).
+    """
+    step: float                 # distance per decision at speed 1 [m]
+    alpha: float = 0.0
+    use_speed: bool = True
+    min_speed: float = 0.0      # floor for the predicted speed (0 = may stop)
+    velocity: tuple = field(default=(0.0, 0.0), init=False)
+
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.alpha < 1.0:
+            raise ValueError(f"filter alpha must be in [0, 1), got {self.alpha}")
+
+    def reset(self) -> None:
+        self.velocity = (0.0, 0.0)
+
+    def move(self, action) -> tuple[float, float]:
+        k, speed = action
+        k = int(k)
+        if not 0 <= k < len(DIRECTION_ANGLE):
+            raise ValueError(f"unknown direction {k!r}")
+        s = max(self.min_speed, min(1.0, float(speed))) if self.use_speed else 1.0
+        a = DIRECTION_ANGLE[k]
+        target = (self.step * s * math.cos(a), self.step * s * math.sin(a))
+        vx, vy = self.velocity
+        self.velocity = (self.alpha * vx + (1 - self.alpha) * target[0], self.alpha * vy + (1 - self.alpha) * target[1])
+        return self.velocity
