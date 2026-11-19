@@ -7,23 +7,92 @@ Runs on any machine with an OpenGL context (MUJOCO_GL=egl), no NVIDIA GPU needed
 
     python3 drive_mujoco.py --model runs/resnet18_001/model.ts --policy net expert forward --count 100
     python3 drive_mujoco.py --model runs/resnet18_001/model.ts --count 20 --filter-alpha 0.7 --out runs/x
+    python3 drive_mujoco.py --model runs/resnet18_001/model.ts --count 3 --view --delay 0.05   # watch it
+
+--view opens MuJoCo's viewer: the camera follows the robot (orange box), the driven path
+is drawn as a trail (green = still running, red = collision / off-road / stuck). Choose
+the camera "cam" in the viewer's left panel for the robot's own view (raw colours, without
+the Isaac-like tone curve). Closing the window stops the run.
 
 Writes <out>/episodes.jsonl and <out>/eval.json (default <out> = <model folder>/drive_mujoco).
 """
 
 import argparse
 import json
+import os
 import random
 import time
 from pathlib import Path
 
+import numpy as np
+
 from closed_loop import episode_goal, make_policies, run_episode, summarize
-from mujoco_scene import MujocoScene
 from sim_core import World
 from sim_core.layout import sample_layout
 from sim_core.motion import DiscreteMotion, FilteredMotion
 
 HALF_SIZE = [0.5374960117042066, 0.5235000565226859]   # robot half size, data/grid/run.json
+
+
+class Viewer:
+    """MuJoCo passive viewer that follows the robot and draws its path (only with --view)."""
+
+    def __init__(self, delay):
+        import mujoco
+        import mujoco.viewer
+        self.mujoco, self.mjv, self.delay = mujoco, mujoco.viewer, delay
+        self.handle, self.scene, self.trail = None, None, []
+
+    @property
+    def running(self):
+        return self.handle is not None and self.handle.is_running()
+
+    def open(self, scene):
+        self.close()
+        self.scene = scene
+        self.handle = self.mjv.launch_passive(scene.model, scene.data)
+        with self.handle.lock():
+            self.handle.opt.geomgroup[3] = 1                     # show the robot box
+            cam = self.handle.cam
+            cam.type = self.mujoco.mjtCamera.mjCAMERA_FREE
+            cam.azimuth, cam.elevation, cam.distance = 0.0, -30.0, 9.0   # behind the robot, looking along +x
+
+    def new_episode(self):
+        self.trail = []
+
+    def step(self, x, y, action):
+        if not self.running:
+            raise SystemExit("[drive_mujoco] viewer closed - stopping")
+        self.trail.append((x, y))
+        self._draw(x, y, (0.11, 0.69, 0.48, 1.0))
+        if self.delay:
+            time.sleep(self.delay)
+
+    def end_episode(self, status):
+        if self.running and self.trail:
+            color = (0.11, 0.69, 0.48, 1.0) if status == "success" else (0.89, 0.29, 0.28, 1.0)
+            self._draw(*self.trail[-1], color)
+            time.sleep(max(0.5, 10 * self.delay))
+
+    def _draw(self, x, y, rgba):
+        mj, h = self.mujoco, self.handle
+        with h.lock():
+            self.scene._place(x, y)                              # robot box + camera to the new position
+            h.cam.lookat[:] = (x + 2.0, y, 0.3)
+            scn = h.user_scn
+            scn.ngeom = 0
+            for px, py in self.trail[-scn.maxgeom:]:
+                if scn.ngeom >= scn.maxgeom:
+                    break
+                mj.mjv_initGeom(scn.geoms[scn.ngeom], mj.mjtGeom.mjGEOM_SPHERE, [0.06, 0, 0],
+                                [px, py, 0.05], np.eye(3).flatten(), np.array(rgba, dtype=np.float32))
+                scn.ngeom += 1
+        h.sync()
+
+    def close(self):
+        if self.handle is not None:
+            self.handle.close()
+            self.handle = None
 
 
 def main():
@@ -50,9 +119,15 @@ def main():
     ap.add_argument("--out", help="output folder (default <model folder>/drive_mujoco)")
     ap.add_argument("--save-frames", action="store_true", help="save every camera image to <out>/frames/")
     ap.add_argument("--device", default=None)
+    ap.add_argument("--view", action="store_true", help="watch the runs in MuJoCo's viewer window")
+    ap.add_argument("--delay", type=float, default=0.0, help="pause per step [s] (with --view)")
     a = ap.parse_args()
     if "net" in a.policy and not a.model:
         ap.error("--policy net needs --model")
+    if a.view:
+        os.environ["MUJOCO_GL"] = "glfw"   # the viewer needs a window; off-screen renders use it too
+    from mujoco_scene import MujocoScene
+    viewer = Viewer(a.delay) if a.view else None
 
     out = Path(a.out) if a.out else (Path(a.model).parent / "drive_mujoco" if a.model else Path("runs/drive_mujoco"))
     out.mkdir(parents=True, exist_ok=True)
@@ -69,15 +144,23 @@ def main():
             obstacles = sample_layout(random.Random(seed), a.min_obstacles, a.max_obstacles)
             world = World.from_scene({"road": road, "robot": {"half_size": HALF_SIZE}, "obstacles": obstacles})
             goal_x = episode_goal(world, a.goal_x, a.goal_after)
-            sc = MujocoScene(obstacles)
+            sc = MujocoScene(obstacles, robot_marker=HALF_SIZE + [0.7755] if a.view else False)
+            if viewer:
+                viewer.open(sc)
             line = []
             for policy in policies:
+                if viewer and not viewer.running:
+                    break
                 frames = None
                 if a.save_frames:
                     frames = out / "frames" / f"layout_{layout:06d}_{policy.name}"
                     frames.mkdir(parents=True, exist_ok=True)
+                if viewer:
+                    viewer.new_episode()
                 ep = run_episode(policy, motion, world, sc.render, goal_x, (a.start_x, a.start_y), a.step,
-                                 a.max_steps, frames)
+                                 a.max_steps, frames, on_step=viewer.step if viewer else None)
+                if viewer:
+                    viewer.end_episode(ep["status"])
                 ep = {"layout": layout, "seed": seed, "policy": policy.name, **ep}
                 results[policy.name].append(ep)
                 f.write(json.dumps({**ep, "obstacles": obstacles}) + "\n")
@@ -85,6 +168,11 @@ def main():
                 line.append(f"{policy.name} {ep['status']} ({ep['steps']} steps, min clear {ep['min_clearance']})")
             print(f"[drive_mujoco] layout {layout}: {len(obstacles)} obstacles, goal x {goal_x:.1f} | "
                   + " | ".join(line), flush=True)
+            if viewer and not viewer.running:
+                print("[drive_mujoco] viewer closed - stopping")
+                break
+    if viewer:
+        viewer.close()
 
     summary = {name: summarize(eps) for name, eps in results.items()}
     (out / "eval.json").write_text(json.dumps({

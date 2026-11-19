@@ -83,6 +83,17 @@ python3 drive_mujoco.py --model runs/resnet18_001/model.ts --policy net expert f
 python3 drive_mujoco.py --model runs/resnet18_001/model.ts --count 100 --filter-alpha 0.7
 ```
 
+**Watching it:** `--view` opens MuJoCo's viewer. The view follows the robot (orange box,
+geom group 3, not in the camera images) and draws the driven path (green, red at the end of a
+failed run). `--delay 0.05` slows it down. Closing the window stops the run. In the viewer's
+left panel, camera `cam` is the robot's own view, in raw colours without the tone curve.
+A static scene: `MUJOCO_GL=glfw python -m mujoco.viewer --mjcf=scene.xml` with
+`build_xml(...)` written to a file.
+
+```bash
+python3 drive_mujoco.py --model runs/resnet18_001/model.ts --count 3 --view --delay 0.05
+```
+
 Same options and output files as `drive.py` (`episodes.jsonl`, `eval.json`, `--save-frames`
 for `dagger.py`). The renderer-independent part (policies, episode loop, goal, scoring)
 is in `closed_loop.py`, a copy of `drive.py`'s logic. Same layouts as an Isaac run with the

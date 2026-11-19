@@ -7,6 +7,7 @@ sim_core.layout, which reproduces the Isaac draws exactly.
 
     from mujoco_scene import MujocoScene
     sc = MujocoScene(obstacles)              # list from sim_core.layout or scene.json (+ "color")
+    sc = MujocoScene(obstacles, robot_marker=True)   # + a box for the robot body, only for the viewer
     img = sc.render(x, y)                    # uint8 [224, 224, 3], robot body centre at (x, y)
     seg = sc.segment(x, y)                   # int [224, 224]: -1 sky, else geom id; sc.geom_class maps it
 
@@ -96,13 +97,24 @@ def top_gain(sun=None):
     return AMBIENT + SUN_DIFFUSE * max(0.0, -d[2] / np.linalg.norm(d))
 
 
-def build_xml(obstacles, colors=None, sun=None, resolution=224):
-    """MJCF text, materials = the USD base colours (linear). colors: overrides {"grass", "asphalt", "paint"}."""
+def build_xml(obstacles, colors=None, sun=None, resolution=224, robot_marker=None):
+    """MJCF text, materials = the USD base colours (linear). colors: overrides {"grass", "asphalt", "paint"}.
+
+    robot_marker: (half_x, half_y, height) adds a semi-transparent box for the robot body in
+    geom group 3, which the camera renders skip (MuJoCo shows groups 0-2 by default); a
+    viewer has to switch group 3 on.
+    """
     col = {"grass": GRASS, "asphalt": ASPHALT, "paint": PAINT, **(colors or {})}
     d = sun_direction() if sun is None else np.asarray(sun, dtype=float)
     # the sky is drawn unlit; pick it so that it comes out as Isaac's grey after the tone curve
     sky = float(tone_inv(SKY_OUT)) * top_gain(sun)
     col["sky"] = (sky, sky, sky)
+    marker = ""
+    if robot_marker:
+        hx, hy, hz = robot_marker
+        marker = (f'\n    <body name="robot" mocap="true" pos="0 0 {hz / 2}">'
+                  f'\n      <geom type="box" size="{hx} {hy} {hz / 2}" rgba="0.92 0.41 0.20 0.45" group="3"/>'
+                  f'\n    </body>')
     geoms = [
         f'<geom name="grass" type="box" pos="0 0 -0.06" size="100 100 0.05" rgba="{_rgba(col["grass"])}"/>',
         f'<geom name="asphalt" type="box" pos="0 0 -0.005" size="{ROAD_LENGTH / 2} {ROAD_WIDTH / 2} 0.005" '
@@ -152,14 +164,18 @@ def build_xml(obstacles, colors=None, sun=None, resolution=224):
     {chr(10).join('    ' + g for g in geoms)}
     <body name="cam_body" mocap="true" pos="0 0 {CAMERA_OFFSET[2]}">
       <camera name="cam" xyaxes="0 -1 0 0 0 1" fovy="{HFOV}"/>
-    </body>
+    </body>{marker}
   </worldbody>
 </mujoco>"""
 
 
 class MujocoScene:
-    def __init__(self, obstacles, resolution=224, **xml_kw):
-        self.xml = build_xml(obstacles, resolution=resolution, **xml_kw)
+    def __init__(self, obstacles, resolution=224, robot_marker=False, **xml_kw):
+        """robot_marker: True (robot size of the dataset) or (half_x, half_y, height)."""
+        if robot_marker is True:
+            robot_marker = (0.5375, 0.5235, 0.7755)
+        self.has_marker = bool(robot_marker)
+        self.xml = build_xml(obstacles, resolution=resolution, robot_marker=robot_marker or None, **xml_kw)
         self.gain = top_gain(xml_kw.get("sun"))
         self.model = mujoco.MjModel.from_xml_string(self.xml)
         self.data = mujoco.MjData(self.model)
@@ -172,6 +188,8 @@ class MujocoScene:
 
     def _place(self, x, y):
         self.data.mocap_pos[0] = (x + CAMERA_OFFSET[0], y + CAMERA_OFFSET[1], CAMERA_OFFSET[2])
+        if self.has_marker:
+            self.data.mocap_pos[1][:2] = (x, y)
         mujoco.mj_forward(self.model, self.data)
 
     def render(self, x, y, isaac_look=True, blur=0.7):
