@@ -173,6 +173,29 @@ python3 drive_mujoco.py --model runs/vel_plans/model.ts --velocity --count 100 [
   back and left ↔ right deadlocks of the direction model), but where two answers are equally
   good the network can average them (left / right → straight, forward / back → stand still).
 
+### Velocity model: closed-loop result (2026-11-19)
+
+`resnet18_vel_plans` (`--task vel`, grid + planned samples, no DAgger; test on the Isaac grid:
+regret 0.017, angle error 8.0°, unsafe 0). MuJoCo, layouts 100000–100099
+(summaries in `docs/results/mujoco_drive_vel_plans/`):
+
+| Model | no filter: success / stuck / collision / off-road | filter 0.7 |
+|---|---|---|
+| L / F / R baseline (discrete) | 83 / 17 / 0 / 0 | 80 / 0 / 2 / 18 |
+| direction model | 71 / 17 / 3 / 9 | 46 / 5 / 3 / 46 |
+| **velocity model** | **88** / 9 / 2 / 1 | **90** / 8 / 2 / **0** |
+| DAgger L / F / R (target, one DAgger round) | 98 / 0 / 0 / 2 | 91 / 0 / 0 / 9 |
+
+- **Best model without DAgger data**, and with the filter almost equal to the DAgger target
+  (90 vs 91 %). It **never leaves the road with the filter**, where every other model drifts
+  off the shoulder. Smooth velocity outputs and a velocity filter fit together.
+- Backs off in 2–3 % of its steps (direction model 10.6 %, expert ≈ 0 %).
+- **Remaining failure: getting stuck** (9 / 8). Mostly standing still (|v| < 0.2) 0.7–0.9 m in
+  front of an obstacle, often out on the shoulder: the average of two good answers (back off
+  or go sideways). Some oscillate at speed with zero net movement. |v| < 0.2 in ~15 % of all steps.
+- Next: one DAgger round for the velocity model (targets exactly these states). If the
+  averaging remains, a mixture output (two candidate velocities + probabilities).
+
 ## Model (`training/models.py`)
 
 `DecisionNet` = backbone → 512-d (ResNet18) features → two heads:

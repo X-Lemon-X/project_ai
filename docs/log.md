@@ -6,6 +6,20 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Velocity model result
+
+**Done**
+- `resnet18_vel_plans` (continuous (vx, vy), grid + planned samples, no DAgger) evaluated in
+  MuJoCo: **88 %** success without filter, **90 %** with the velocity filter (L / F / R baseline
+  83 / 80 %, direction model 71 / 46 %, DAgger target 98 / 91 %). **No off-road failure with the
+  filter.** Remaining: stuck 9 / 8, mostly standing still in front of an obstacle (averaging).
+  → [training](knowledge/training.md#velocity-model-closed-loop-result-2026-11-19)
+
+**Next**
+- DAgger round 1 for the velocity model, to beat the DAgger L / F / R target.
+
+---
+
 ## 2026-11-19 — Direction model results (first look), velocity model
 
 **Done**
