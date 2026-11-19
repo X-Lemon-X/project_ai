@@ -45,6 +45,7 @@ perfect and the data generation runs unattended.
 |---|---|
 | `scene_gen.py` | Dataset generator: places random obstacles per layout and captures camera + lidar over a grid of robot positions. Uses `isaac_scene.py` |
 | `mujoco_scene.py` | MuJoCo version of the scene (renderer only, trial): same layouts via `sim_core/layout.py`, Isaac-like lighting and tone curve. Needs `pip install mujoco`. See `docs/knowledge/mujoco.md` |
+| `drive_mujoco.py`, `closed_loop.py` | Closed-loop test in MuJoCo (same options and outputs as `drive.py`); `closed_loop.py` = renderer-independent policies, episode loop and scoring |
 | `compare_renderers.py` | Isaac vs MuJoCo on dataset layouts: side-by-side figure and metrics |
 | `isaac_scene.py` | Isaac Sim scene shared by `scene_gen.py` and `drive.py`: road, robot, obstacle pool, camera, lidar. Import only after creating `SimulationApp` |
 | `drive.py` | Closed-loop test in Isaac Sim: camera → policy (`net` = `model.ts`, `expert`, `forward`) → F/L/R step, on unseen layouts (default from 100000). Writes `<model dir>/drive/eval.json` + `episodes.jsonl` |
@@ -61,7 +62,7 @@ perfect and the data generation runs unattended.
 | `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
 | `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
 | `plot_runs.py` | Plots runs (learning curves, test metrics) from `config.json`, `metrics.csv`, `test_metrics.json`. Plain Python + matplotlib |
-| `tests/` | Checks of simulator-free code: `python tests/test_motion.py`, `tests/test_dagger.py`, `tests/test_directional.py`, `tests/test_planning.py`, `tests/test_layout.py` |
+| `tests/` | Checks of simulator-free code: `python tests/test_motion.py`, `tests/test_dagger.py`, `tests/test_directional.py`, `tests/test_planning.py`, `tests/test_layout.py`, `tests/test_closed_loop.py` |
 | `requirements-train.txt` | Python packages for labelling and training (not needed for Isaac Sim) |
 | `runs/` | Training runs (checkpoints, metrics, `model.ts`). Git-ignored |
 | `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |

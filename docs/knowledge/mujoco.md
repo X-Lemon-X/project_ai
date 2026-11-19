@@ -76,6 +76,61 @@ extent. With the 200 m grass, `znear = 0.01` cut away everything closer than
 - **Speed**: ~10 ms per image vs ~0.25 s per sample in Isaac (incl. lidar),
   and it runs on an AMD laptop GPU and in Colab.
 
+## Closed-loop test in MuJoCo (`drive_mujoco.py`, 2026-11-19)
+
+```bash
+python3 drive_mujoco.py --model runs/resnet18_001/model.ts --policy net expert forward --count 100
+python3 drive_mujoco.py --model runs/resnet18_001/model.ts --count 100 --filter-alpha 0.7
+```
+
+Same options and output files as `drive.py` (`episodes.jsonl`, `eval.json`, `--save-frames`
+for `dagger.py`). The renderer-independent part (policies, episode loop, goal, scoring)
+is in `closed_loop.py`, a copy of `drive.py`'s logic. Same layouts as an Isaac run with the
+same seeds. CPU PyTorch in `.venv` is enough. The network takes ~22 ms per image on the
+laptop CPU, the render ~10 ms, and 100 episodes take 2–6 minutes.
+
+**ResNet18 trained on Isaac images (`resnet18_001`), 100 unseen layouts (100000–100099),
+start x = −17 m, y = 0, steps of 0.2 m:**
+
+| Motion | Policy | success | collision | off-road | timeout (stuck) |
+|---|---|---|---|---|---|
+| discrete steps | network | **83** | 0 | 0 | 17 |
+| discrete steps | expert (fixed, see below) | 100 | 0 | 0 | 0 |
+| discrete steps | always forward | 24 | 76 | 0 | 0 |
+| side steps with 0.1 m forward | network | **97** | 3 | 0 | 0 |
+| low-pass filter α = 0.7 | network | **80** | 2 | 18 | 0 |
+
+Summaries: `docs/results/mujoco_drive_2026-11-19/`.
+
+**Same pattern as in Isaac.** The 3 layouts of the first Isaac test (2026-11-12,
+100000–100002) end the same way: network 2/3 (stuck in front of the obstacles in
+100002), expert 3/3, always forward 1/3. The model is different (that test used
+`runs/smoke`), so this is an indication, not a direct comparison. The meeting
+observations (stuck switching L/R; with the filter no deadlock, but failures)
+appear here as well.
+
+Where the network fails ([figure](../figures/2026-11-19_mujoco_drive_failures.png)):
+
+- **Stuck (discrete) and off-road (filter) are one problem.** 16 of 17 timeouts
+  and 17 of 18 off-road ends are 1.5–6 m **before** the first obstacle, after a
+  first sideways move to a lateral position like y ≈ −2.2. The 5 × 5 grid only has
+  y = 0, ±1.49, ±2.98, so these in-between positions were never in the training
+  data. With discrete steps the network then switches L/R in place. With the filter
+  its repeated "R" adds up and the robot slides across the shoulder to the edge of
+  the allowed strip. → DAgger, planned sampling (0007 A, 0008).
+- **Collisions happen beside the obstacle while passing it** (all 5): the smooth
+  variants dodge only ~0.8 m, then the obstacle leaves the camera's view and
+  the robot cuts back in. → memory, side cameras (0007 C, F), the stronger
+  repulsion (wider dodge, 0007 E).
+
+**Expert fix.** In the first run the expert itself ended off-road in 4 of 100
+layouts: it plans on a lattice with 0.198 m lateral spacing, but the test moves
+0.2 m per side step, so after ~15 side steps the robot is 2 cm further out than
+the expert thinks, past |y| = 2.976 m. `closed_loop.ExpertPolicy` now checks the
+real move and takes the next-best possible one, giving 100/100. **`drive.py` (Isaac)
+still has the old version**: its expert results are slightly pessimistic until it
+uses `closed_loop.py`.
+
 Not done: lidar (could use MuJoCo ray casts or the analytic scan,
 [0003](../proposals/0003-lidar-verification.md)), the robot body (not visible
 from the camera), USD obstacle models, and a check how a network trained on

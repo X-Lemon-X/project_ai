@@ -1,0 +1,61 @@
+{
+  "renderer": "mujoco",
+  "args": {
+    "model": null,
+    "policy": [
+      "expert"
+    ],
+    "count": 100,
+    "start": 100000,
+    "seed": 0,
+    "min_obstacles": 1,
+    "max_obstacles": 3,
+    "step": 0.2,
+    "side_step": 0.2,
+    "side_forward": 0.0,
+    "filter_alpha": null,
+    "start_x": -17.0,
+    "start_y": 0.0,
+    "goal_after": 1.0,
+    "goal_x": 18.0,
+    "max_steps": 0,
+    "shoulder": 1.5,
+    "out": "runs/mj_eval/expert_fixed",
+    "save_frames": false,
+    "device": null
+  },
+  "robot": {
+    "half_size": [
+      0.5374960117042066,
+      0.5235000565226859
+    ]
+  },
+  "road": {
+    "width": 4.0,
+    "lane_width": 2.0,
+    "length": 40.0,
+    "shoulder": 1.5
+  },
+  "seconds": 106.8,
+  "summary": {
+    "expert": {
+      "episodes": 100,
+      "success_rate": 1.0,
+      "collision_rate": 0.0,
+      "off_road_rate": 0.0,
+      "timeout_rate": 0.0,
+      "status": {
+        "success": 100
+      },
+      "mean_progress": 1.0043119999999999,
+      "mean_steps_success": 115.46,
+      "mean_min_clearance": 0.529913,
+      "min_min_clearance": 0.2692,
+      "actions": {
+        "F": 10838,
+        "R": 338,
+        "L": 370
+      }
+    }
+  }
+}

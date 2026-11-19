@@ -6,6 +6,30 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Closed-loop test in MuJoCo (`drive_mujoco.py`)
+
+**Done**
+- `drive_mujoco.py` + `closed_loop.py`: `drive.py` with the MuJoCo renderer, same
+  options, layouts and outputs. Runs on the laptop (CPU PyTorch, ~30 ms per step).
+- ResNet18 trained on Isaac images (`resnet18_001`), 100 unseen layouts: success
+  **83 %** with discrete steps (17 stuck), **97 %** with side steps that also go 0.1 m forward
+  (3 collisions), **80 %** with the low-pass filter (18 off-road, 2 collisions). Expert
+  100 %, always forward 24 %. The 3 layouts of the first Isaac test end exactly as
+  there. → [mujoco](knowledge/mujoco.md#closed-loop-test-in-mujoco-drive_mujocopy-2026-11-19)
+- Failure analysis: stuck and off-road happen 1.5–6 m before the obstacles at
+  lateral positions between the 5 grid columns (never seen in training);
+  collisions happen beside an obstacle after it leaves the camera's view.
+- Fixed the expert in the closed-loop test (it drifted off-road in 4 % of the runs
+  because the 0.2 m steps don't match its 0.198 m lattice). `drive.py` still has
+  the old code.
+
+**Next**
+- A DAgger round entirely in MuJoCo: `drive_mujoco.py --save-frames`, `dagger.py`,
+  retrain on Colab, evaluate on other layouts.
+- Switch `drive.py` to `closed_loop.py` (test on the Isaac PC).
+
+---
+
 ## 2026-11-19 — MuJoCo side-by-side trial
 
 **Done**
