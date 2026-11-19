@@ -83,6 +83,33 @@ regenerated alone with `--start <layout> --num 1`.
 - Sample index `i` runs row by row: `ix` = distance index (0 = far),
   `iy` = lateral index (0 = left).
 
+## Planned samples (`--plan`, 2026-11-19)
+
+Instead of the grid, the positions of a layout can be chosen by the tuned directional
+expert ([0008](../proposals/0008-expert-planned-sampling.md), accepted):
+
+```bash
+python3 scene_gen_mujoco.py --plan --start 300000 --num 300 --out data/plans_mj     # MuJoCo, any laptop
+~/isaacsim/python.sh scene_gen.py --robot nomad_r.usd --plan --start 300000 --num 300 --out data/plans --headless
+```
+
+- Per layout (defaults): 25 hot spots, 1 sequence from 6 m before the obstacles (up to 60
+  frames), 2 recovery sequences from the back-off zone (up to 20 frames), perturbations
+  ε = 0.2 in the sequences. About 125 images per layout. Options: `--hotspots`,
+  `--start-seqs`, `--recovery-seqs`, `--start-len`, `--recovery-len`, `--eps`.
+- Same output format as the grid, so all tools work. Samples have `ix = iy = -1` and a
+  `plan` field (kind, sequence, step, expert move, importance), and `scene.json` has
+  `plan` instead of `grid`. `check_dataset.py` draws 10 images per row for such layouts.
+- **Same positions in both generators** for the same seed: `sim_core.planning.planned_positions`
+  with the layout seed, on the layout from `sim_core.layout`, which reproduces Isaac's
+  obstacle draws exactly. `scene_gen.py --plan` compiles but has **not been run on the
+  Isaac PC yet**.
+- `scene_gen_mujoco.py` without `--plan` renders the grid like `scene_gen.py`. Positions and
+  geometry fields are identical to the Isaac dataset (checked on layout 958). It takes
+  ~22 ms per image on the laptop, no lidar.
+- Layout ranges: dataset 0–999, evaluation 100000+, DAgger rollouts 200000+, planned
+  data 300000+.
+
 ## Output
 
 ```

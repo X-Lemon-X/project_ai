@@ -59,11 +59,13 @@ perfect and the data generation runs unattended.
 | `dagger.py` | DAgger labeller: labels the frames of `drive.py --save-frames` runs with the expert, adds them as a train part (`<data>/labels_plus_<name>.jsonl`). See `docs/knowledge/training.md` |
 | `plan_samples.py` | Plans which positions to render (hot spots, start and recovery sequences) from the geometry, with the directional expert. Uses `sim_core/planning.py` |
 | `view_field.py` | Decision field of an expert (one arrow per lattice node), current or directional. Plain Python + matplotlib |
+| `scene_gen_mujoco.py` | Dataset generator with MuJoCo (no Isaac Sim): same layouts and output format as `scene_gen.py`; `--plan` = expert-planned hot spots and sequences (0008) |
+| `merge_labels.py` | Adds labels of other datasets to a base labels file as training-only rows (image paths rewritten), e.g. grid + planned samples |
 | `label_directions.py` | 8-direction + speed labels (tuned directional expert) for any labels file → `<labels>_dir.jsonl`, for `train.py --task dir` |
 | `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
 | `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
 | `plot_runs.py` | Plots runs (learning curves, test metrics) from `config.json`, `metrics.csv`, `test_metrics.json`. Plain Python + matplotlib |
-| `tests/` | Checks of simulator-free code: `python tests/test_motion.py`, `tests/test_dagger.py`, `tests/test_directional.py`, `tests/test_planning.py`, `tests/test_layout.py`, `tests/test_closed_loop.py`, `tests/test_training_dir.py` |
+| `tests/` | Checks of simulator-free code: `python tests/test_motion.py`, `tests/test_dagger.py`, `tests/test_directional.py`, `tests/test_planning.py`, `tests/test_layout.py`, `tests/test_closed_loop.py`, `tests/test_training_dir.py`, `tests/test_generation.py` |
 | `requirements-train.txt` | Python packages for labelling and training (not needed for Isaac Sim) |
 | `runs/` | Training runs (checkpoints, metrics, `model.ts`). Git-ignored |
 | `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |
@@ -138,6 +140,7 @@ python check_dataset.py data/grid --sheets 3
 | `--obstacles` | Folder of obstacle `.usd/.usda/.usdc` files instead of primitives (base at z = 0) |
 | `--out` | Output folder (default `data/grid`) |
 | `--seed` | Base RNG seed |
+| `--plan` | Expert-planned positions (hot spots, start and recovery sequences, 0008) instead of the grid; `--hotspots`, `--start-seqs`, `--recovery-seqs`, `--start-len`, `--recovery-len`, `--eps` |
 | `--headless` | No window |
 
 **World conventions:**

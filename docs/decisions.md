@@ -2,6 +2,24 @@
 
 Newest first. One entry per decision: what, why, and where it is described.
 
+## 2026-11-19 — Expert-planned sampling accepted (0008), direction model
+
+- **Proposal [0008](proposals/0008-expert-planned-sampling.md) accepted.** The generator
+  chooses the robot positions of a layout with the tuned directional expert: hot spots
+  where a wrong move matters, a sequence from the start, and recovery sequences from the
+  back-off zone. Why: the 5 × 5 grid never comes closer than 1 m to an obstacle, so it
+  has no back-off examples, and the network's failures happen at lateral positions
+  between its columns. The grid stays the default and the validation / test set.
+- **Both generators plan the same positions:** `scene_gen.py --plan` (Isaac) and
+  `scene_gen_mujoco.py --plan` (MuJoCo) use `sim_core.planning.planned_positions` with
+  the layout seed; layouts come from the same draws (`sim_core.layout`).
+- **Direction model** (`train.py --task dir`, 8 directions + speed, labels from
+  `label_directions.py`) next to the L / F / R model, which stays unchanged. Why: the
+  purpose of the new output is backing off and slowing down, which L / F / R can't express
+  ([0007 D](proposals/0007-closed-loop-fixes.md#d-output-as-direction--speed)).
+- **Planned samples are added as training data only** (`merge_labels.py`), so validation
+  and test stay the Isaac grid and results stay comparable with earlier runs.
+
 ## 2026-11-03 — Label scheme and first training setup
 
 - **Labels: 3 classes L / F / R** from the cost-to-go expert (answers Q14).

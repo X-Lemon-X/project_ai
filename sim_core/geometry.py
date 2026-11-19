@@ -151,3 +151,35 @@ def points_to_convex_distance(points, poly):
     d = np.linalg.norm(rel - t[..., None] * e[None], axis=-1).min(axis=1)
     d[points_in_convex(p, a)] = 0.0
     return d
+
+
+def sample_geometry(cx, cy, half_size, camera_offset, hfov, obstacles, road_width=4.0):
+    """Per-sample geometry as scene_gen.py writes it to samples.jsonl, for the body centre (cx, cy).
+
+    half_size = robot (hx, hy); camera_offset = (x, y, height) from the body centre; hfov in
+    degrees; obstacles as in scene.json. Same formulas as scene_gen.sample_geometry.
+    """
+    import math
+    hx, hy = half_size
+    foot = rect_poly(cx, cy, 2 * hx, 2 * hy)
+    clear = [clearance(foot, o["footprint"]) for o in obstacles]
+    ahead = free_ahead([o["footprint"] for o in obstacles], cx, cy, hx, hy)
+    nearest = None
+    if obstacles:
+        i = min(range(len(obstacles)), key=clear.__getitem__)
+        ox, oy = centroid(obstacles[i]["footprint"])
+        nearest = {"index": i, "clearance": clear[i], "bearing_deg": math.degrees(math.atan2(oy - cy, ox - cx))}
+    camx, camy = cx + camera_offset[0], cy + camera_offset[1]
+    in_fov = [i for i, o in enumerate(obstacles)
+              if any(p[0] - camx > 0.05 and abs(math.degrees(math.atan2(p[1] - camy, p[0] - camx))) <= hfov / 2
+                     for p in o["footprint"])]
+    return {
+        "robot_center": [cx, cy],
+        "heading_deg": 0.0,
+        "camera_pos": [camx, camy, camera_offset[2]],
+        "dist_ahead": ahead,
+        "nearest_obstacle": nearest,
+        "clearances": clear,
+        "road_edge": {"left": road_width / 2 - (cy + hy), "right": (cy - hy) + road_width / 2},
+        "in_fov": in_fov,
+    }

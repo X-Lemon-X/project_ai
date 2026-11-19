@@ -40,6 +40,14 @@ parser.add_argument("--no-lidar", action="store_true", help="Skip lidar capture 
 parser.add_argument("--settle", type=int, default=4, help="Renderer updates after a teleport before capturing")
 parser.add_argument("--out", default="data/grid", help="Output folder")
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--plan", action="store_true",
+                    help="expert-planned positions (hot spots + sequences, docs/proposals/0008) instead of the grid")
+parser.add_argument("--hotspots", type=int, default=25, help="with --plan: hot spots per layout")
+parser.add_argument("--start-seqs", type=int, default=1, help="with --plan: sequences from the start")
+parser.add_argument("--recovery-seqs", type=int, default=2, help="with --plan: recovery sequences")
+parser.add_argument("--start-len", type=int, default=60, help="with --plan: frames per start sequence")
+parser.add_argument("--recovery-len", type=int, default=20, help="with --plan: frames per recovery sequence")
+parser.add_argument("--eps", type=float, default=0.2, help="with --plan: perturbation probability")
 parser.add_argument("--headless", action="store_true")
 args, _ = parser.parse_known_args()
 
@@ -53,7 +61,9 @@ from PIL import Image
 
 import isaac_scene as scene
 from isaac_scene import ROAD_WIDTH
+from sim_core import World
 from sim_core.geometry import centroid, clearance, clip_band, rect_poly
+from sim_core.planning import PlanSettings, planned_positions
 
 
 # ---------------------------------------------------------------- per-layout geometry
@@ -151,7 +161,19 @@ def main():
             (tmp / "lidar").mkdir()
 
         obstacles = scene.place_obstacles(pool, rng, args.min_obstacles, args.max_obstacles)
-        positions, x_first = grid_positions(robot_info, obstacles)
+        plans = None
+        if args.plan:
+            # Same planner and seed as scene_gen_mujoco.py, so both render the same positions.
+            world = World.from_scene({"road": run["road"], "robot": {"half_size": robot_info["half_size"]},
+                                      "obstacles": obstacles})
+            settings = PlanSettings(hotspots=args.hotspots, start_seqs=args.start_seqs,
+                                    recovery_seqs=args.recovery_seqs, start_len=args.start_len,
+                                    recovery_len=args.recovery_len, eps=args.eps)
+            plans = planned_positions(world, np.random.default_rng(seed), settings)
+            positions = [(-1, -1, p["robot_center"][0], p["robot_center"][1]) for p in plans]
+            x_first = min(p[0] for o in obstacles for p in o["footprint"])
+        else:
+            positions, x_first = grid_positions(robot_info, obstacles)
         with open(tmp / "samples.jsonl", "w") as f:
             for k, (ix, iy, x, y) in enumerate(positions):
                 scene.place_robot(robot, robot_info, x, y)
@@ -164,14 +186,18 @@ def main():
                 sample = {"i": k, "ix": ix, "iy": iy, "rgb": f"rgb/{k:03d}.png",
                           "lidar": f"lidar/{k:03d}.npy" if lidar else None}
                 sample.update(sample_geometry(x, y, robot_info, obstacles, hfov))
+                if plans is not None:
+                    sample["plan"] = {key: plans[k][key] for key in ("kind", "seq", "t", "best", "move",
+                                                                      "executed", "score")}
                 f.write(json.dumps(sample) + "\n")
 
         meta = {
             "layout": layout,
             "seed": seed,
             "obstacles": obstacles,
-            "grid": {"nx": args.nx, "ny": args.ny, "near": args.near, "far": args.far, "x_first": x_first,
-                     "samples": len(positions)},
+            **({"plan": {"settings": vars(settings), "samples": len(positions), "x_first": x_first}} if args.plan else
+               {"grid": {"nx": args.nx, "ny": args.ny, "near": args.near, "far": args.far, "x_first": x_first,
+                         "samples": len(positions)}}),
             "road": run["road"],
             "robot": run["robot"],
             "camera": run["camera"],

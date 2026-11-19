@@ -173,3 +173,16 @@ class Planner:
 
     def plan(self, rng):
         return self.hotspots(rng) + self.sequences(rng)
+
+
+def planned_positions(world, rng, settings=None, costs=None, connectivity=8, grid_kw=None):
+    """Plan one layout: the samples to render (hot spots, start and recovery sequences).
+
+    world: sim_core.World of the layout; rng: numpy Generator. Default expert: the tuned
+    directional expert (clearance 10, safe_dist 1.0, backward 3). Returns the planned samples
+    (dicts with "robot_center", "kind", "seq", "t", "best", "move", "executed", "score").
+    """
+    from .expert import Costs
+    costs = costs or Costs(clearance=10.0, safe_dist=1.0, backward=3.0)
+    ex = DirectionalExpert(world, costs=costs, connectivity=connectivity, **(grid_kw or {"cell": 0.2, "margin": 0.1}))
+    return Planner(ex, settings).plan(rng)
