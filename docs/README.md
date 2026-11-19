@@ -35,6 +35,7 @@ Proposals
 - [0006 Pipeline: data gathering → training (local / Colab)](proposals/0006-pipeline.md)
 - [0007 Closed-loop failures: what to change next](proposals/0007-closed-loop-fixes.md)
 - [0008 Expert-planned sampling: hot spots, sequences, a view-aware expert](proposals/0008-expert-planned-sampling.md)
+- [0009 Right-lane pull in the expert](proposals/0009-right-lane-pull.md)
 
 ## Conventions
 

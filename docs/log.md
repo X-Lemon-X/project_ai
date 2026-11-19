@@ -29,6 +29,9 @@ linked pages; this file is the short version.
 - DAgger round on the direction model (its own false back-offs and drift, labelled).
 - Train `--task vel` on Colab with `labels_dir_plans.jsonl` and compare.
 - Asphalt preference (Q15): almost all failures are at the shoulder edge.
+- Idea recorded as [0009](proposals/0009-right-lane-pull.md): the expert pulls towards the right
+  lane (a lane term with a target side), planned scenarios that show the return, training
+  with `--no-flip`. Documented only. First the velocity model and DAgger results.
 
 ---
 
