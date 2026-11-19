@@ -6,6 +6,27 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Planned dataset (0008 accepted) for the direction model
+
+**Done**
+- Proposal 0008 accepted. `scene_gen_mujoco.py --plan` (and `scene_gen.py --plan` for
+  Isaac): the tuned directional expert picks hot spots and start / recovery sequences
+  per layout. → [scene-generator](knowledge/scene-generator.md#planned-samples---plan-2026-11-19)
+- Generated `data/plans_mj`: 300 layouts (300000–300299), 37,100 images, MuJoCo,
+  ~6 s per layout on the laptop.
+- Direction labels: F 53 %, diagonal 20 %, sideways 20 %, **back 7.0 %** (grid: 0 %),
+  speed < 1 in 9.3 %. First data with back-off examples.
+- `merge_labels.py`: `labels_dir_plans.jsonl` (grid + planned, 57,100 train) and
+  `labels_dir_dagger_plans.jsonl` (+ DAgger r1, 77,115 train). Val / test stay the Isaac
+  grid (no back labels there, so back-off is only measurable in closed loop).
+- For Colab: `data/plans_mj_dir.zip` (207 MB).
+
+**DAgger r1, first closed-loop numbers** (discrete steps, 79 of 100 layouts): baseline 67
+success / 12 stuck → DAgger 78 success / 0 stuck / 1 off-road. Control model (A) still to
+be evaluated.
+
+---
+
 ## 2026-11-19 — Direction model: labels, training, driving (step 2 of 0007 D)
 
 **Done** (branch `feature/direction-model`)
