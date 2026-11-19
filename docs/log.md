@@ -6,6 +6,29 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — DAgger round 1 in MuJoCo: data
+
+**Done**
+- Rollouts of `resnet18_001` with `drive_mujoco.py --save-frames` on layouts that are
+  neither in the dataset nor in the evaluation: 200000–200059 (discrete steps),
+  200100–200159 (side steps with 0.1 m forward), 200200–200259 (filter 0.7). 180 episodes,
+  21,611 frames. Success 90 / 93 / 80 %, as in the evaluation.
+- `dagger.py`: 20,032 labelled frames (20,015 trainable, max. 3 per lattice node and
+  episode), F 95.1 %, L 3.3 %, R 1.6 %, B 0. In 4.3 % of the frames the network's move is not among the expert's
+  best (292 F where the expert says L, 232 L / 175 R where it says F, 84 wrong side),
+  spread over lateral positions between the grid columns.
+- Control set (`render_dataset_mujoco.py`): all 20,000 training grid samples re-rendered
+  in MuJoCo with their labels. It separates "new positions" from "MuJoCo images".
+- For Colab: `data/grid_r1_parts.zip` (201 MB, new parts only; unzip on top of `grid.zip`).
+
+**Next**
+- Train on Colab: ResNet18 on `labels_plus_dagger_r1.jsonl` (B) and on
+  `labels_plus_mujoco_grid.jsonl` (A, control), same settings as `resnet18_001`.
+- Evaluate both with `drive_mujoco.py` on 100000–100099, 3 motion modes, against the
+  baseline (83 / 97 / 80 %).
+
+---
+
 ## 2026-11-19 — Closed-loop test in MuJoCo (`drive_mujoco.py`)
 
 **Done**
