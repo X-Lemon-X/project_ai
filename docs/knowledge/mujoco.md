@@ -113,25 +113,45 @@ start x = −17 m, y = 0, steps of 0.2 m:**
 
 Summaries: `docs/results/mujoco_drive_2026-11-19/`.
 
-**After DAgger round 1** (`resnet18_dagger_r1`: grid + 20,015 MuJoCo frames from the network's
-own runs on layouts 200000+, labelled by the expert; same 100 evaluation layouts):
+**After DAgger round 1, with a control** (same 100 evaluation layouts):
 
-| Motion | baseline `resnet18_001` | DAgger r1 |
-|---|---|---|
-| discrete steps | 83 success · 17 stuck | **98** success · 0 stuck · 2 off-road |
-| side steps with 0.1 m forward | 97 success · 3 collisions | **98** success · 0 collisions · 2 off-road |
-| low-pass filter α = 0.7 | 80 success · 18 off-road · 2 collisions | **91** success · 9 off-road · 0 collisions |
+- `resnet18_dagger_r1`: grid + 20,015 MuJoCo frames from the network's own runs (layouts
+  200000+), labelled by the expert.
+- `resnet18_mjgrid` (control A): grid + 20,000 MuJoCo renders of the grid's own train
+  positions. Same size, same Isaac / MuJoCo mix and same training steps as DAgger. The only
+  difference is *where* the extra images were taken.
 
-No collision in 300 episodes, and no layout stuck. The only failure left is stepping over
-the outer edge of the allowed strip (|y| = 3.0 m): either it keeps dodging past the point
-where it is clear (layout 100034 fails like this in all three modes), or one last side
-step while passing along the edge. The grid data has no samples between |y| = 2.0 and
-2.9 m, and no dataset says "come back to the road" (the expert has no asphalt preference,
-Q15). Per image on the Isaac grid test set the DAgger model is slightly worse (bal_acc
-0.943 vs 0.959): the per-image score does not show the closed-loop gain. **Not yet
-attributed:** the control model trained on grid + MuJoCo renders of the grid positions
-(`resnet18_mjgrid`) still has to be evaluated, to separate "new positions" from "MuJoCo
-images". Summaries: `docs/results/mujoco_drive_dagger_r1/`.
+| Motion | Model | success | stuck | collision | off-road |
+|---|---|---|---|---|---|
+| discrete steps | baseline `resnet18_001` | 83 | 17 | 0 | 0 |
+| | control A | 90 | 9 | 1 | 0 |
+| | **DAgger r1** | **98** | **0** | **0** | 2 |
+| side steps + 0.1 m forward | baseline | 97 | 0 | 3 | 0 |
+| | control A | 96 | 0 | 4 | 0 |
+| | **DAgger r1** | **98** | 0 | **0** | 2 |
+| low-pass filter α = 0.7 | baseline | 80 | 0 | 2 | 18 |
+| | control A | 90 | 0 | 3 | 7 |
+| | **DAgger r1** | **91** | 0 | **0** | 9 |
+| **all 300 episodes** | baseline | 260 | 17 | 5 | 18 |
+| | control A | 276 | 9 | 8 | 7 |
+| | **DAgger r1** | **287** | **0** | **0** | 13 |
+
+Summaries: `docs/results/mujoco_drive_dagger_r1/`, `docs/results/mujoco_drive_mjgrid/`.
+
+- **DAgger effect** (DAgger vs control A, equal data size and mix): it removes all stuck runs
+  (9 → 0) and **all collisions** (8 → 0). The collisions happen beside an obstacle while
+  passing it, and the grid has no such positions, so re-rendering it doesn't help (A even
+  collides slightly more than the baseline).
+- **Baseline → control A (+16 successes, not attributed):** A had twice the training images,
+  the grid in two renderers (a kind of visual randomization) and twice the training steps.
+  Together they fix about half of the stuck runs and most of the filter's off-road failures
+  (18 → 7). Which factor matters is open. The most useful check is evaluating A and DAgger in
+  Isaac (if A is better there too, it is generalization, not adaptation to MuJoCo images).
+- **Remaining weakness of DAgger:** it leaves the road more often than A (13 vs 7). It dodges
+  more decisively and sometimes overshoots the shoulder edge (|y| = 3.0 m). The grid has no
+  samples between |y| = 2.0 and 2.9 m, and the expert has no asphalt preference (Q15).
+- **Per-image scores don't predict driving:** on the Isaac grid test set DAgger is the
+  weakest of the three (bal_acc 0.943 vs 0.959 baseline, 0.956 control), but it drives best.
 
 **Same pattern as in Isaac.** The 3 layouts of the first Isaac test (2026-11-12,
 100000–100002) end the same way: network 2/3 (stuck in front of the obstacles in

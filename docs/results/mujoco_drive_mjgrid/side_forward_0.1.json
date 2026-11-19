@@ -1,0 +1,67 @@
+{
+  "renderer": "mujoco",
+  "args": {
+    "model": "runs/resnet18_mjgrid/model.ts",
+    "policy": [
+      "net"
+    ],
+    "count": 100,
+    "start": 100000,
+    "seed": 0,
+    "min_obstacles": 1,
+    "max_obstacles": 3,
+    "step": 0.2,
+    "side_step": 0.2,
+    "side_forward": 0.1,
+    "filter_alpha": null,
+    "directional": false,
+    "no_speed": false,
+    "min_speed": 0.0,
+    "start_x": -17.0,
+    "start_y": 0.0,
+    "goal_after": 1.0,
+    "goal_x": 18.0,
+    "max_steps": 0,
+    "shoulder": 1.5,
+    "out": "runs/mj_eval_mjgrid/side_forward_0.1",
+    "save_frames": false,
+    "device": null,
+    "view": false,
+    "delay": 0.0
+  },
+  "robot": {
+    "half_size": [
+      0.5374960117042066,
+      0.5235000565226859
+    ]
+  },
+  "road": {
+    "width": 4.0,
+    "lane_width": 2.0,
+    "length": 40.0,
+    "shoulder": 1.5
+  },
+  "seconds": 369.7,
+  "summary": {
+    "net": {
+      "episodes": 100,
+      "success_rate": 0.96,
+      "collision_rate": 0.04,
+      "off_road_rate": 0.0,
+      "timeout_rate": 0.0,
+      "status": {
+        "success": 96,
+        "collision": 4
+      },
+      "mean_progress": 0.9938250000000001,
+      "mean_steps_success": 111.83333333333333,
+      "mean_min_clearance": 0.5339090000000001,
+      "min_min_clearance": 0.0,
+      "actions": {
+        "F": 10313,
+        "R": 395,
+        "L": 410
+      }
+    }
+  }
+}

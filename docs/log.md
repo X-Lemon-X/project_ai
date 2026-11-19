@@ -6,6 +6,37 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — DAgger control result, session wrap-up
+
+**Done**
+- Control model A (`resnet18_mjgrid`: grid + MuJoCo renders of the grid positions, same size as
+  DAgger) evaluated in MuJoCo. All 300 episodes: baseline 260 successes (17 stuck, 5
+  collisions, 18 off-road), control A 276 (9 / 8 / 7), **DAgger r1 287 (0 / 0 / 13)**.
+- Conclusions:
+  - DAgger's own effect, against the equal-sized control: no stuck runs, no collisions.
+  - More and more varied data (A) explains part of the gain, mainly fewer off-road failures
+    with the filter. Not yet attributed (more data, two renderers or longer training).
+  - DAgger's remaining failure is overshooting the shoulder edge.
+  - Per-image test scores don't predict driving.
+  → [mujoco](knowledge/mujoco.md#closed-loop-test-in-mujoco-drive_mujocopy-2026-11-19)
+- Handover page for Patryk ([handover-2026-11-19](handover-2026-11-19.md)): data, models,
+  runs, Isaac tasks.
+- Status updates: 0007 (A done, D implemented, E tuned), 0008 accepted, Q16 / Q19 / Q20 answered.
+
+**Next directions**, in this order:
+1. Train and evaluate the direction model on grid + planned samples
+   (`labels_dir_plans.jsonl`). Does it back off, and does it stop overshooting the edge?
+2. **Road-style randomization** (line types, edge lines, shoulders) in the MuJoCo generator,
+   with held-out styles for testing. Requested by the supervisor on 2026-10-21 and still open.
+3. Asphalt preference in the expert (Q15), against the edge overshoot: relabel only.
+4. DAgger round 2, on the DAgger or the direction model.
+5. Memory (GRU on frozen features) with the planned sequences and rollouts.
+6. Isaac confirmation of the MuJoCo results (Patryk), and the Isaac-only tasks on the
+   handover page.
+7. A results overview page (`docs/knowledge/results.md`) for the next meeting.
+
+---
+
 ## 2026-11-19 — Planned dataset (0008 accepted) for the direction model
 
 **Done**
