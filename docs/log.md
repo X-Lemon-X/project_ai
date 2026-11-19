@@ -21,9 +21,11 @@ linked pages; this file is the short version.
   grid (no back labels there, so back-off is only measurable in closed loop).
 - For Colab: `data/plans_mj_dir.zip` (207 MB).
 
-**DAgger r1, first closed-loop numbers** (discrete steps, 79 of 100 layouts): baseline 67
-success / 12 stuck → DAgger 78 success / 0 stuck / 1 off-road. Control model (A) still to
-be evaluated.
+**DAgger r1, closed loop in MuJoCo** (100 layouts, `resnet18_dagger_r1` vs `resnet18_001`):
+discrete 83 → **98 %** (stuck 17 → 0), side steps + forward 97 → **98 %** (collisions 3 → 0),
+filter 80 → **91 %** (off-road 18 → 9, collisions 2 → 0). No collision in 300 episodes. The
+remaining failures step over the outer edge of the shoulder. Control model (A) still to be
+evaluated. → [mujoco](knowledge/mujoco.md#closed-loop-test-in-mujoco-drive_mujocopy-2026-11-19)
 
 ---
 

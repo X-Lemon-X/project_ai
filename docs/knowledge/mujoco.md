@@ -113,6 +113,26 @@ start x = −17 m, y = 0, steps of 0.2 m:**
 
 Summaries: `docs/results/mujoco_drive_2026-11-19/`.
 
+**After DAgger round 1** (`resnet18_dagger_r1`: grid + 20,015 MuJoCo frames from the network's
+own runs on layouts 200000+, labelled by the expert; same 100 evaluation layouts):
+
+| Motion | baseline `resnet18_001` | DAgger r1 |
+|---|---|---|
+| discrete steps | 83 success · 17 stuck | **98** success · 0 stuck · 2 off-road |
+| side steps with 0.1 m forward | 97 success · 3 collisions | **98** success · 0 collisions · 2 off-road |
+| low-pass filter α = 0.7 | 80 success · 18 off-road · 2 collisions | **91** success · 9 off-road · 0 collisions |
+
+No collision in 300 episodes, and no layout stuck. The only failure left is stepping over
+the outer edge of the allowed strip (|y| = 3.0 m): either it keeps dodging past the point
+where it is clear (layout 100034 fails like this in all three modes), or one last side
+step while passing along the edge. The grid data has no samples between |y| = 2.0 and
+2.9 m, and no dataset says "come back to the road" (the expert has no asphalt preference,
+Q15). Per image on the Isaac grid test set the DAgger model is slightly worse (bal_acc
+0.943 vs 0.959): the per-image score does not show the closed-loop gain. **Not yet
+attributed:** the control model trained on grid + MuJoCo renders of the grid positions
+(`resnet18_mjgrid`) still has to be evaluated, to separate "new positions" from "MuJoCo
+images". Summaries: `docs/results/mujoco_drive_dagger_r1/`.
+
 **Same pattern as in Isaac.** The 3 layouts of the first Isaac test (2026-11-12,
 100000–100002) end the same way: network 2/3 (stuck in front of the obstacles in
 100002), expert 3/3, always forward 1/3. The model is different (that test used
