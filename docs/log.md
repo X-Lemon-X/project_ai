@@ -6,6 +6,37 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-18 — Meeting with the supervisor: closed-loop problems
+
+**Discussed**
+- Closed-loop driving (`drive.py`) shows problems the per-image metrics don't:
+  the network sometimes gets **stuck**, alternating left-right-left-right.
+- **Low-pass filter** (our proposal, `--filter-alpha`): the robot gets unstuck
+  and drives smoothly, but it hardly ever goes back. The deadlock had been
+  stopping it in front of obstacles, so with the filter **crashes** became
+  possible.
+- Supervisor's proposals:
+  - **More data with many more cases.**
+  - **Memory in the model.**
+  - **Side cameras** (`camera_left`, `camera_right`) as extra input, even if
+    it might feel like "easy mode".
+- Shared idea: the **fixed heading** may hold the model back. **Rotation**
+  would let it orient toward the free side.
+- Our ideas:
+  - **Change the output definition.** Discrete L/F/R fits a continuous
+    world badly. Instead, output a direction (as in the filter) plus a
+    translation or speed, so the network can decide to go back.
+  - **Hybrid expert:** Dijkstra as now, plus a potential field that repels the
+    robot from obstacles, so it can back off before turning to go forward.
+
+**Follow-up**
+- All ideas collected and ordered in
+  [0007 closed-loop fixes](proposals/0007-closed-loop-fixes.md), with an
+  analysis of why the filter caused crashes (no stop / back action in the
+  labels, B never occurs) and of the tie trap for a continuous direction output.
+
+---
+
 ## 2026-11-18 — Low-pass-filtered steering in `drive.py`
 
 **Done**

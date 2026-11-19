@@ -31,6 +31,7 @@ Proposals
 - [0004 Sequence training](proposals/0004-sequence-training.md)
 - [0005 Control vector](proposals/0005-control-vector.md)
 - [0006 Pipeline: data gathering → training (local / Colab)](proposals/0006-pipeline.md)
+- [0007 Closed-loop failures: what to change next](proposals/0007-closed-loop-fixes.md)
 
 ## Conventions
 

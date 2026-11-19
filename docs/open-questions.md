@@ -15,6 +15,9 @@ When a question is answered, write the answer next to it (or move it to
 | Q11 | Where to host datasets: Google Drive, Hugging Face Hub, Kaggle? | Google Drive shared folder, zipped versions | 0006 |
 | Q12 | Local GPU model and VRAM? Decides whether training and Isaac Sim can run at once, and how many `collect.py` processes fit. | **GPU known: RTX 5060 Laptop, 8 GB** (2026-11-03). ResNet18 training at batch 64 fits. Whether Isaac Sim fits at the same time is not tested, so run one at a time | 0006 |
 | Q15 | Should the expert prefer the asphalt? Now it labels F on the grass shoulder whenever nothing is near, so the robot never returns to the road (remark 2026-11-07). | Not applied yet. Two options: switch on the existing lane-centre term (`label.py --lane`, Q6), or add a small off-road penalty for nodes off the asphalt. Either must stay small enough that dodging over the shoulder still wins when the road is blocked. Labels are offline, so trying it needs only `label.py` + retraining, no new data | expert, 0002 |
+| Q16 | Output of the policy: keep L/F/R, or direction + speed (direction bins + signed speed) so it can stop and back off? | Direction bins + speed, labels from the expert with 8-16 directions ([0007 D](proposals/0007-closed-loop-fixes.md#d-output-as-direction--speed)) | 0005, 0007 |
+| Q17 | Side cameras as input: allowed, or is it "easy mode"? | Allowed, reported as a comparison: front only vs front + sides ([0007 F](proposals/0007-closed-loop-fixes.md#f-side-cameras)) | 0007 |
+| Q18 | Rotation (variable heading): when? | After the fixed-heading fixes (DAgger, new output, memory) work ([0007 G](proposals/0007-closed-loop-fixes.md#g-rotation)) | 0005, 0007 |
 
 ## Answered
 

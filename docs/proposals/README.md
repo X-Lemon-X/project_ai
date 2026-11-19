@@ -14,6 +14,7 @@ Status values: `draft` (being discussed) · `accepted` (we will do it) ·
 | [0004](0004-sequence-training.md) | Sequence training | draft |
 | [0005](0005-control-vector.md) | Control vector | draft |
 | [0006](0006-pipeline.md) | Pipeline: data gathering → training (local / Colab) | draft |
+| [0007](0007-closed-loop-fixes.md) | Closed-loop failures: what to change next | draft |
 
 ## Template
 
