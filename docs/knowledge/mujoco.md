@@ -1,0 +1,82 @@
+# MuJoCo renderer (trial, `mujoco_scene.py`)
+
+A second renderer for the same scene, so closed-loop tests and data generation
+could run without Isaac Sim, e.g. on a laptop without an NVIDIA GPU (Q19). Only
+a renderer: the robot is a teleported point mass in both, so no physics is
+needed. Trial of 2026-11-19 on layout 958, then checked on 20 more layouts.
+
+```bash
+.venv/bin/pip install mujoco                                       # 4.0.1 used
+python3 compare_renderers.py data/grid --layouts 958 --figure compare.png
+```
+
+```python
+import random
+from sim_core.layout import sample_layout
+from mujoco_scene import MujocoScene
+sc = MujocoScene(sample_layout(random.Random(958)))   # layout 958 of the dataset (seed 958)
+img = sc.render(x, y)                                  # uint8 [224, 224, 3], robot body centre at (x, y)
+```
+
+## Same layouts without Isaac Sim (`sim_core/layout.py`)
+
+`sample_layout(random.Random(seed))` repeats the random draws of
+`isaac_scene.place_obstacles` in pure Python: number, shape, size, position,
+yaw **and colour** of the obstacles. It reproduces all 1000 layouts of
+`data/grid` exactly (`tests/test_layout.py`). `isaac_scene.py` itself is
+unchanged; if its draws change, the test fails. This is also the engine-free
+layout sampling that planned sampling needs
+([0008](../proposals/0008-expert-planned-sampling.md#what-it-needs)).
+
+## How the scene is matched
+
+| Item | Isaac Sim | MuJoCo |
+|---|---|---|
+| Road, lines, grass | boxes in `build_world` | same boxes and base colours |
+| Obstacles | scaled USD cube / cylinder / sphere | box / cylinder / sphere geoms, same size, pose, colour |
+| Camera | OAK-D `rgb_camera`, 0.275 m ahead of the body centre, 0.757 m high, 69° | same, level (horizon measured at row 113 of 224) |
+| Sun | DistantLight 1200, rotate (−40, 20, 0) | directional light, same direction (−0.26, −0.64, −0.72), shadows |
+| Dome light 300 | soft light from the whole sky | ambient light, 15 % of the sunlit level (measured on shaded cube faces) |
+| Image | RTX: linear light → exposure / tone mapping → sRGB | linear render, then the tone curve fitted on Isaac's road surfaces |
+
+The tone curve: `out = srgb(k·L / (1 + k·L / w))`, k = 1.91, w = 1.48
+(L = 1: base colour in full sun), fitted on asphalt, grass and paint (max error
+4 / 255). The sky is drawn unlit with the colour that comes out as Isaac's grey.
+MuJoCo also gets 8× multisampling and a Gaussian blur of σ = 0.7 px for the
+softness of Isaac's denoised image.
+
+Pitfall: MuJoCo's `znear`, `zfar` and `shadowclip` are fractions of the model
+extent. With the 200 m grass, `znear = 0.01` cut away everything closer than
+~1.4 m. Fixed by setting `<statistic extent="100">` and `znear = 0.0002`
+(2 cm). The directional light's position sets where its shadow box sits.
+
+## Result
+
+![Isaac Sim vs MuJoCo, layout 958](../figures/2026-11-19_isaac_vs_mujoco_958.png)
+
+`compare_renderers.py` on the 25 grid samples per layout:
+
+| | layout 958 | layouts 900–919 (20, all shapes) |
+|---|---|---|
+| Mean pixel difference | 3.5 / 255 (max 4.8) | 3.6 / 255 |
+| Road markings overlap (IoU) | 0.90 | 0.89 |
+| Obstacle overlap (IoU, rough colour segmentation of the Isaac image) | 0.62 | 0.64 |
+| MuJoCo time per image (AMD Radeon 680M, EGL) | ~10 ms | ~10 ms |
+
+- **Geometry matches**: horizon, road edges, dashed line, obstacle sizes and
+  positions, shadow direction. The paint IoU of ~0.9 is limited by the soft
+  edges in Isaac's image.
+- **Colours** of sky, grass, asphalt and paint match within ~3 %. Obstacle faces
+  within 3–27 % per channel (the shaded side of a coloured face is a little greyer in
+  MuJoCo).
+- **Remaining differences**: Isaac's soft contact shadows around obstacles (the
+  dome light is blocked near them, ray-traced ambient occlusion) and soft
+  shadow edges; MuJoCo shadows are harder. The obstacle IoU is limited by the
+  colour segmentation of the Isaac image in these shadows, not by the geometry.
+- **Speed**: ~10 ms per image vs ~0.25 s per sample in Isaac (incl. lidar),
+  and it runs on an AMD laptop GPU and in Colab.
+
+Not done: lidar (could use MuJoCo ray casts or the analytic scan,
+[0003](../proposals/0003-lidar-verification.md)), the robot body (not visible
+from the camera), USD obstacle models, and a check how a network trained on
+Isaac images drives in MuJoCo (sim-to-sim transfer).

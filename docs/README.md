@@ -23,6 +23,7 @@ Knowledge
 - [World model, expert and dataset loader](knowledge/expert.md) (`sim_core/`)
 - [Labelling and training](knowledge/training.md) (`label.py`, `train.py`, `training/`)
 - [Literature](knowledge/literature.md): related papers and what they mean for us
+- [MuJoCo renderer (trial)](knowledge/mujoco.md)
 
 Proposals
 - [0001 Point-mass control model](proposals/0001-point-mass-control.md)

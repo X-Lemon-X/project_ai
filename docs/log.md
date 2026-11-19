@@ -6,6 +6,25 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — MuJoCo side-by-side trial
+
+**Done**
+- `sim_core/layout.py`: the Isaac obstacle draws in pure Python. Reproduces all
+  1000 layouts of `data/grid` exactly, including the obstacle colours (`tests/test_layout.py`).
+- `mujoco_scene.py`: the scene in MuJoCo (renderer only). Isaac's camera, sun,
+  dome light and tone curve were measured on layout 958 and matched.
+- `compare_renderers.py`: side by side + metrics. On layout 958 and 20 more
+  layouts: mean pixel difference 3.6 / 255, road markings IoU 0.89, obstacle
+  IoU ~0.64 (limited by Isaac's soft contact shadows). ~10 ms per image on the laptop.
+  → [mujoco](knowledge/mujoco.md)
+
+**Next**
+- Decide: MuJoCo only for development (fast closed-loop tests, DAgger, planned
+  samples), or also for training data. Possible test: a network trained on Isaac
+  images, driven in MuJoCo (and the other way round).
+
+---
+
 ## 2026-11-19 — Planned sampling and view-aware term
 
 **Done**
