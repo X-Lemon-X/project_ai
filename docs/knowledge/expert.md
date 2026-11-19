@@ -111,7 +111,7 @@ Feasibility check on all 1000 layouts, 25,000 grid samples, label settings as
 |---|---|---|
 | Time per layout (Dijkstra + edge checks) | 0.7 s | 2.0 s |
 | All expert paths reach the goal | yes | yes |
-| Best direction F / diagonal / sideways | 82 % / 8 % / 10 % | 79 % / 16 % (±26°, ±63°) / 4 % (±45° 4 %) |
+| Best direction | 0°: 82 %, ±45°: 8 %, ±90°: 10 % | 0°: 79 %, ±26° / ±63°: 12 %, ±45°: 4.5 %, ±90°: 4 % |
 | Backward part (\|angle\| > 90°) | **0** | **0** |
 | Lateral sign agrees with the L / F / R labels | 99.5 % | 98.6 % |
 | Ties | 31 % (100 of them left vs right) | 31 % (100 left vs right) |
