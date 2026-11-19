@@ -15,6 +15,7 @@ Status values: `draft` (being discussed) · `accepted` (we will do it) ·
 | [0005](0005-control-vector.md) | Control vector | draft |
 | [0006](0006-pipeline.md) | Pipeline: data gathering → training (local / Colab) | draft |
 | [0007](0007-closed-loop-fixes.md) | Closed-loop failures: what to change next | draft |
+| [0008](0008-expert-planned-sampling.md) | Expert-planned sampling: hot spots, sequences, a view-aware expert | draft |
 
 ## Template
 

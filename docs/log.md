@@ -25,6 +25,11 @@ linked pages; this file is the short version.
   ~0.5 m in front of obstacles (≈ 50 % of the near positions back off), paths
   keep ~1 m away, all reach the goal. Grid samples still get no backward labels
   (all ≥ 1 m away): they need DAgger states or samples closer than 1 m.
+- Ideas recorded as [0008](proposals/0008-expert-planned-sampling.md): the expert
+  picks hot spots (where a wrong move is costly) and sequences (from the start,
+  recovery from the back-off zone) before rendering; a view-aware expert that
+  backs off so the memoryless network can see the free side; later an expert
+  that only knows what has been seen.
 
 **Next**
 - Decide 8 vs 16 directions (Q20). Then: labeller for direction labels,
