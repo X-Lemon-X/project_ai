@@ -19,6 +19,12 @@ linked pages; this file is the short version.
   step sideways and every grid row is ≥ 1 m from the obstacles.
   → [expert](knowledge/expert.md#directional-expert-prototype-sim_coredirectionalpy)
 - MuJoCo twin of the scene: considered and parked (Q19).
+- `view_field.py`: decision field of an expert (arrow per lattice node). With the
+  current costs the expert does **not** back off near obstacles (sideways instead).
+- Tuned the repulsion: `clearance 10, safe_dist 1.0` gives a back-off zone within
+  ~0.5 m in front of obstacles (≈ 50 % of the near positions back off), paths
+  keep ~1 m away, all reach the goal. Grid samples still get no backward labels
+  (all ≥ 1 m away): they need DAgger states or samples closer than 1 m.
 
 **Next**
 - Decide 8 vs 16 directions (Q20). Then: labeller for direction labels,

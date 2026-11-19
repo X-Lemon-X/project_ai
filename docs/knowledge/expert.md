@@ -154,6 +154,45 @@ react near obstacles (29 % slowed within 1 m), but such positions never
 appear among the grid samples (every row is ≥ 1 m away), so it only matters
 for DAgger data.
 
+### Tuning the repulsion so that it backs off (2026-11-19)
+
+The repulsion term is `clearance · max(0, 1 − gap / safe_dist)` per metre. A
+stronger, longer-range repulsion makes backing off worth it close to an
+obstacle: going back first and then sideways at a larger gap costs less than
+strafing along the obstacle's front. Grid search, directional expert with 8
+directions, 30 test layouts (900–929); "backs off" = share of nodes with
+the obstacle ahead (free distance < 2 m) whose best move has a backward part.
+The path columns are for a path from y = 0, 8 m before the first obstacle:
+
+| `clearance` | `safe_dist` | `backward` | backs off, gap < 0.5 m | backs off, 0.5–1 m | min clearance on the path | extra path length |
+|---|---|---|---|---|---|---|
+| 2 (current) | 0.5 | 3 | 4.7 % | 0 % | 0.52 m | 0.59 m |
+| 5 | 1.0 | 3 | 24 % | 24 % | 0.98 m | 0.82 m |
+| **10** | **1.0** | **3** | **53 %** | **50 %** | 0.98 m | 0.82 m |
+| 20 | 1.0 | 3 | 68 % | 65 % | 0.98 m | 0.82 m |
+| 10 | 1.5 | 3 | 38 % | 56 % | 1.35 m | 1.04 m |
+| 10 | 1.0 | 1 | 70 % | 70 % | 0.98 m | 0.82 m |
+
+- `safe_dist` sets how far the path keeps away (≈ `safe_dist`); the weight
+  sets how strongly it backs off when it is closer. All 30 paths reach the
+  goal in every setting.
+- From a normal start, **no setting backs off on the path** (0 backward steps):
+  the expert dodges early. Backing off only appears in states the robot
+  reaches by mistake, which is the recovery behaviour the network should learn.
+- **Candidate: `clearance 10, safe_dist 1.0, backward 3`.** In front of an obstacle
+  there is a clear back-off zone within about 0.5 m, sideways moves further out, forward
+  beside it ([field](../figures/2026-11-19_field_958_8dir_repulsion10.png)):
+
+  ```bash
+  python3 view_field.py data/grid --layout 958 --expert 8 --zoom --clearance 10 --safe-dist 1.0
+  ```
+
+- Effect on the grid-sample labels (every 5th layout): dodges start earlier
+  (diagonal in row 2: 16 % → 29 %; not forward in row 4: 38 % → 48 %), so the
+  classes are more balanced. Still **no** backward label on grid samples,
+  because every row is ≥ 1 m from the obstacles. Back-off labels need samples
+  closer than that: DAgger rollouts, or a generator run with `--near` < 1 m.
+
 ## Speed
 
 Grid and Dijkstra take ≈ 38 ms per layout (pure Python heap). Labelling all

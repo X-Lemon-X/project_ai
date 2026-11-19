@@ -138,6 +138,10 @@ obstacles side by side, a dead end). Concretely:
   backward weight (`--backward`) makes the expert use B more, but with a
   holonomic robot sideways is almost always as good. Test it, but expect few
   B labels until G.
+- **Tuned (2026-11-19):** with `clearance 10, safe_dist 1.0` the directional expert
+  backs off in about half of the positions within 1 m in front of an obstacle,
+  and keeps about 1 m away on its own path
+  ([expert](../knowledge/expert.md#tuning-the-repulsion-so-that-it-backs-off-2026-11-19)).
 - Potential gradients (direction of steepest descent of the cost) are also a
   natural **continuous direction label** for D.
 
