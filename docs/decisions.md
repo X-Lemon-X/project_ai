@@ -2,6 +2,16 @@
 
 Newest first. One entry per decision: what, why, and where it is described.
 
+## 2026-11-19 — Continuous velocity output is the main architecture
+
+- **Main output from now on: the velocity (vx, vy)** (`--task vel`), not L / F / R or 8 direction
+  classes. Why: on the same data (grid + planned samples) it drives best (88 % without filter, 90 %
+  with the velocity filter, vs 71 / 46 % for 8 directions and 83 / 80 % for the L / F / R baseline),
+  and it is the only model that never leaves the road with the filter.
+  → [results](knowledge/results.md)
+- **Next step for it: one DAgger round** (not started), to beat the DAgger L / F / R model
+  (98 / 91 %, 0 collisions) like for like. L / F / R and the direction task stay available.
+
 ## 2026-11-19 — Continuous velocity output (vx, vy)
 
 - **Third output type `--task vel`: the velocity (vx, vy)** in the unit disk, next to L / F / R and

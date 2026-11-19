@@ -170,12 +170,17 @@ Field meanings are in `docs/knowledge/scene-generator.md`.
 
 ## Next steps
 
-1. ~~Generate a first dataset~~: done, 1000 layouts = 25 k images in `data/grid/`.
-2. ~~Offline labeller~~: done, `label.py` (L / F / R from the cost-to-go expert).
-3. Train a small pretrained CNN: code done (`train.py`). Full ResNet18 and
-   small-CNN baseline runs are still to do.
-4. Closed-loop test (`drive.py`): code done. Run a full evaluation of the
-   trained models against the expert and always-forward baselines.
+Status 2026-11-19 (all results in `docs/knowledge/results.md`, open work in `docs/log.md`):
+
+1. ~~Dataset, labeller, ResNet18 / small-CNN runs, closed-loop test~~: done (Isaac `drive.py`,
+   MuJoCo `drive_mujoco.py`).
+2. ~~DAgger round 1 (L / F / R)~~: done, 98 / 91 % in MuJoCo, 0 collisions.
+3. **Main architecture: continuous velocity output** (`train.py --task vel`), 88 / 90 % without
+   DAgger. Next: one DAgger round for it (commands on `docs/handover-2026-11-19.md`).
+4. Open: right-lane pull (proposal 0009), road-style randomization, memory (proposal 0004,
+   reuse the trained encoder), Isaac confirmation of the MuJoCo results.
+
+Isaac closed-loop test (L / F / R models; direction and velocity models only in `drive_mujoco.py`):
 
 ```bash
 # Watch the network drive (GUI), 0.1 s pause per step

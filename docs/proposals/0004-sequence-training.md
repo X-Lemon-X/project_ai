@@ -65,6 +65,27 @@ closed-loop tests.
     its last k actions. If that works much better on the clone's runs than on
     the expert's, the clone is copying
 
+### Reusing the trained memoryless models (2026-11-19)
+
+The memory model doesn't have to start from zero:
+
+1. **Encoder:** take the ResNet18 backbone of the best memoryless model (the velocity model,
+   or the DAgger L / F / R model). Freeze it, compute the 512-d features of every frame once,
+   and train only the memory part (GRU or frame stack) on the feature sequences. That takes
+   minutes, even on a laptop CPU.
+2. **Start as the memoryless model:** feed the heads `[features of frame t, memory state]`.
+   Copy the old head weights for the first part and set the weights of the memory part to
+   zero. At the start of training the memory model then drives exactly like the memoryless
+   one, and training only adds memory where it helps. Same for frame stacking (old weights on
+   the current frame, zeros on the earlier frames).
+3. **Optionally** unfreeze the encoder afterwards with a small learning rate, so it can learn
+   motion cues.
+
+**Sequence data:** the planned start / recovery sequences (`scene_gen_mujoco.py --plan`) and
+`drive_mujoco.py --save-frames` rollouts, with `dagger.py --max-per-node 0` so the sequences
+stay complete. The grid has single frames only. At drive time `closed_loop.py` must carry the
+hidden state and reset it per episode (not implemented yet).
+
 ### Distance estimation
 
 Goal: from a sequence of images, the network should estimate how far the

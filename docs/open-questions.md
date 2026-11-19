@@ -33,6 +33,6 @@ When a question is answered, write the answer next to it (or move it to
 | — | Documentation language? | **English only.** |
 | Q14 | Label scheme for the grid data? | **3 classes L / F / R** from the cost-to-go expert, with tie-aware targets (2026-11-03). B never occurs on the grid data. See [decisions](decisions.md#2026-11-03--label-scheme-and-first-training-setup). |
 | Q13 | Is the GitHub repo public, or does Colab need a token? | **Public** (`github.com/X-Lemon-X/project_ai`), so Colab clones it without a token. Checked 2026-10-26. |
-| Q16 | Output of the policy: L/F/R or direction + speed? | **Direction bins + speed** (8 directions, `train.py --task dir`), implemented 2026-11-19; L/F/R kept as an option |
+| Q16 | Output of the policy: L/F/R or direction + speed? | **Continuous velocity (vx, vy)** (`--task vel`), chosen 2026-11-19 after comparing all three on the same data ([results](knowledge/results.md)). 8 direction classes (`--task dir`) and L / F / R stay as options |
 | Q19 | MuJoCo twin of the scene? | **Yes**, for development, closed-loop tests and extra training data (DAgger frames, planned samples). Same layouts as Isaac, mean pixel difference 3.6 / 255. Final numbers still to be confirmed in Isaac |
 | Q20 | 8 or 16 directions? | **8** (2026-11-19) |

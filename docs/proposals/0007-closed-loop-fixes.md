@@ -5,7 +5,9 @@ Status: draft · Date: 2026-11-19
 **Progress (2026-11-19):** A (DAgger) done in MuJoCo: no stuck runs and no collisions in 300
 episodes, against an equal-sized control
 ([mujoco](../knowledge/mujoco.md#closed-loop-test-in-mujoco-drive_mujocopy-2026-11-19)).
-D (direction + speed) implemented (`train.py --task dir`), training pending. E (repulsion)
+D (output form): 8 direction classes (`--task dir`) drove worse than L / F / R, and the
+continuous velocity (vx, vy) (`--task vel`) drove best of the models without DAgger and became
+the main architecture ([results](../knowledge/results.md)). E (repulsion)
 tuned. B (positions beyond the grid) via planned samples ([0008](0008-expert-planned-sampling.md)).
 
 Collects the ideas from the 2026-11-18 supervisor meeting ([log](../log.md))

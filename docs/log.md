@@ -6,6 +6,28 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Session wrap-up: velocity output chosen
+
+**Done**
+- [Results overview](knowledge/results.md): all five models with per-image and closed-loop
+  numbers, the evaluation protocol, and five lessons (per-image ≠ driving, DAgger vs control,
+  output form, failure → fix table, MuJoCo validity).
+- **Decision: the continuous velocity output (vx, vy) is the main architecture**
+  ([decisions](decisions.md)). Q16 updated, 0007 D closed.
+- Memory plan written down: reuse the trained encoder, start the memory model as the
+  memoryless one (zero-initialised memory input) → [0004](proposals/0004-sequence-training.md).
+- Handover page updated with the direction and velocity models and the commands for a velocity
+  DAgger round.
+
+**Next** (not started)
+1. DAgger round 1 for the velocity model (target: beat 98 / 91 %, 0 collisions).
+2. Right-lane pull in the expert ([0009](proposals/0009-right-lane-pull.md)).
+3. Road-style randomization in the MuJoCo generator (supervisor, 2026-10-21).
+4. Memory on top of the velocity model's encoder ([0004](proposals/0004-sequence-training.md)).
+5. Isaac confirmation of the MuJoCo results (Patryk, [handover](handover-2026-11-19.md)).
+
+---
+
 ## 2026-11-19 — Velocity model result
 
 **Done**

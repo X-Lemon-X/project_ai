@@ -23,6 +23,7 @@ Knowledge
 - [Scene generator](knowledge/scene-generator.md)
 - [World model, expert and dataset loader](knowledge/expert.md) (`sim_core/`)
 - [Labelling and training](knowledge/training.md) (`label.py`, `train.py`, `training/`)
+- [Results overview](knowledge/results.md): all models, per image and in closed loop, with the lessons
 - [Literature](knowledge/literature.md): related papers and what they mean for us
 - [MuJoCo renderer (trial)](knowledge/mujoco.md)
 
