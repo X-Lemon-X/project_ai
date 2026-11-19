@@ -1,0 +1,185 @@
+"""Plots training runs written by train.py: learning curves and a test-metric comparison.
+
+Plain Python + matplotlib, no torch. Each run folder needs config.json, metrics.csv
+and test_metrics.json (copy them from Colab / Drive; checkpoints are not needed).
+
+    python3 plot_runs.py docs/results/resnet18_* docs/results/smallcnn_* --out docs/figures
+
+Runs of the same model (e.g. different seeds) are grouped: the curves show the mean
+with a min-max band, the test figure shows the mean and each run. At most 4 models.
+Writes <out>/runs_curves.png and <out>/runs_test.png (use --prefix to change the names).
+"""
+
+import argparse
+import csv
+import json
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+# Validated categorical slots (blue, orange, aqua, yellow), fixed order; text and grid in neutral ink.
+SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
+SURFACE, INK, INK_2, GRID = "#fcfcfb", "#0b0b0b", "#52514e", "#e4e3df"
+
+NAMES = {"resnet18": "ResNet18 (pretrained)", "smallcnn": "Small CNN (from scratch)",
+         "mobilenet_v3_small": "MobileNetV3-S (pretrained)", "efficientnet_b0": "EfficientNet-B0 (pretrained)"}
+
+
+def load_run(path):
+    path = Path(path)
+    config = json.loads((path / "config.json").read_text())
+    with open(path / "metrics.csv") as f:
+        rows = [{k: float(v) for k, v in r.items()} for r in csv.DictReader(f)]
+    test = json.loads((path / "test_metrics.json").read_text())
+    model = config["args"]["model"]
+    pretrained = not config["args"].get("no_pretrained", False) and model != "smallcnn"
+    label = NAMES.get(model, model) if pretrained or model == "smallcnn" else f"{model} (random init)"
+    return {"label": label, "rows": rows, "test": test,
+            "freeze": config["args"].get("freeze_epochs", 0) if pretrained else 0}
+
+
+def group_runs(runs):
+    """Runs with the same label -> one group (keeps the order in which models first appear)."""
+    groups = {}
+    for r in runs:
+        groups.setdefault(r["label"], []).append(r)
+    return [{"label": k, "runs": v} for k, v in groups.items()]
+
+
+def mean(xs):
+    return sum(xs) / len(xs)
+
+
+def style(ax):
+    ax.set_facecolor(SURFACE)
+    for side in ("top", "right"):
+        ax.spines[side].set_visible(False)
+    for side in ("left", "bottom"):
+        ax.spines[side].set_color(GRID)
+    ax.tick_params(colors=INK_2, labelsize=9, length=0)
+    ax.grid(True, color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+
+
+def legend_label(g):
+    n = len(g["runs"])
+    return g["label"] if n == 1 else f"{g['label']} · {n} runs"
+
+
+def plot_curves(groups, out):
+    panels = [("val_bal_acc", "Validation balanced accuracy", "{:.3f}"),
+              ("train_loss", "Training loss", "{:.2f}"),
+              ("val_dist_mae", "Validation distance-ahead error [m]", "{:.2f} m")]
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.8), facecolor=SURFACE)
+    n_ep = min(len(r["rows"]) for g in groups for r in g["runs"])
+    ep = list(range(n_ep))
+    for ax, (key, title, fmt) in zip(axes, panels):
+        style(ax)
+        ends = []
+        for k, g in enumerate(groups):
+            c = SERIES[k]
+            per_ep = [[r["rows"][e][key] for r in g["runs"]] for e in ep]
+            m = [mean(v) for v in per_ep]
+            if len(g["runs"]) > 1:
+                ax.fill_between(ep, [min(v) for v in per_ep], [max(v) for v in per_ep],
+                                color=c, alpha=0.15, linewidth=0, zorder=2)
+            ax.plot(ep, m, color=c, linewidth=2, marker="o", markersize=5,
+                    markeredgecolor=SURFACE, markeredgewidth=1.2, label=legend_label(g), zorder=3)
+            ends.append((m[-1], ep[-1]))
+        # direct label on the last point only; push apart labels that would overlap
+        lo, hi = ax.get_ylim()
+        gap = 0.06 * (hi - lo)
+        placed = []
+        for y, x in sorted(ends):
+            ty = max(y, placed[-1] + gap) if placed else y
+            placed.append(ty)
+            ax.annotate(fmt.format(y), (x, y), xytext=(x + 0.25, ty), textcoords="data",
+                        va="center", fontsize=9, color=INK)
+        if any(r["freeze"] for g in groups for r in g["runs"]):
+            ax.axvspan(-0.4, 0.5, color=GRID, alpha=0.5, linewidth=0, zorder=0)
+        ax.set_title(title, loc="left", fontsize=11, color=INK, pad=10)
+        ax.set_xlabel("epoch", fontsize=9, color=INK_2)
+        ax.set_xlim(-0.4, ep[-1] + 1.6)
+    if any(r["freeze"] for g in groups for r in g["runs"]):
+        axes[0].text(0.05, 0.03, "shaded: backbone frozen (pretrained only)", transform=axes[0].transAxes,
+                     fontsize=8, color=INK_2)
+    if any(len(g["runs"]) > 1 for g in groups):
+        fig.text(0.5, 0.905, "line = mean over runs, band = min-max", ha="center", fontsize=8.5, color=INK_2)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=len(groups), frameon=False, fontsize=10,
+               bbox_to_anchor=(0.5, 1.0), labelcolor=INK)
+    fig.tight_layout(rect=(0, 0, 1, 0.89))
+    fig.savefig(out, dpi=150, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def plot_test(groups, out):
+    metrics = [("bal_acc", "Balanced accuracy"), ("recall_L", "Recall L"), ("recall_F", "Recall F"),
+               ("recall_R", "Recall R"), ("acc", "Accuracy (tie-aware)")]
+    fig, ax = plt.subplots(figsize=(9, 4.4 + 0.15 * len(groups)), facecolor=SURFACE)
+    style(ax)
+    ax.grid(True, axis="x", color=GRID, linewidth=0.8)
+    ax.grid(False, axis="y")
+    n = len(groups)
+    offsets = [(k - (n - 1) / 2) * 0.24 for k in range(n)]
+    for k, g in enumerate(groups):
+        c = SERIES[k]
+        for i, (m, _) in enumerate(metrics):
+            y = i + offsets[k]
+            vals = [r["test"][m] for r in g["runs"]]
+            mu = mean(vals)
+            if len(vals) > 1:
+                ax.plot([min(vals), max(vals)], [y, y], color=c, linewidth=2, alpha=0.35, zorder=2,
+                        solid_capstyle="round")
+                ax.scatter(vals, [y] * len(vals), s=18, color=c, alpha=0.55, linewidth=0, zorder=3)
+            ax.scatter([mu], [y], s=70, color=c, edgecolor=SURFACE, linewidth=1.5, zorder=4,
+                       label=legend_label(g) if i == 0 else None)
+            ax.annotate(f"{mu:.3f}", (max(vals), y), xytext=(8, 0), textcoords="offset points", va="center",
+                        fontsize=8.5, color=INK)
+    ax.set_yticks(range(len(metrics)), [t for _, t in metrics], color=INK, fontsize=10)
+    ax.invert_yaxis()
+    lo = min(r["test"][m] for g in groups for r in g["runs"] for m, _ in metrics)
+    ax.set_xlim(max(0.0, lo - 0.03), 1.02)
+    note = ("\nlarge dot = mean, small dots = single runs, line = min-max"
+            if any(len(g["runs"]) > 1 for g in groups) else "")
+    ax.set_xlabel("score on test layouts (higher is better; axis does not start at 0)" + note, fontsize=9,
+                  color=INK_2)
+
+    def summary(g):
+        t = [r["test"] for r in g["runs"]]
+        unsafe = ", ".join(f"{x['unsafe']:.4f}" for x in t)
+        best = ", ".join(str(x["best_epoch"]) for x in t)
+        return (f"{g['label']} ({len(t)} run{'s' if len(t) > 1 else ''}): unsafe {unsafe} · "
+                f"regret {mean([x['regret'] for x in t]):.4f} · distance error "
+                f"{mean([x['dist_mae'] for x in t]):.2f} m · best epoch {best}")
+
+    ax.set_title("Test metrics (100 held-out layouts, 2,500 images)", loc="left", fontsize=11, color=INK, pad=28)
+    ax.legend(loc="lower left", bbox_to_anchor=(0, 1.0), ncol=n, frameon=False, fontsize=9, labelcolor=INK,
+              borderaxespad=0.2)
+    fig.text(0.01, 0.01, "\n".join(summary(g) for g in groups), fontsize=8, color=INK_2, va="bottom",
+             linespacing=1.5)
+    fig.tight_layout(rect=(0, 0.04 + 0.035 * n, 1, 1))
+    fig.savefig(out, dpi=150, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("runs", nargs="+", help="run folders with config.json, metrics.csv, test_metrics.json")
+    ap.add_argument("--out", default="runs", help="output folder")
+    ap.add_argument("--prefix", default="runs", help="file name prefix")
+    a = ap.parse_args()
+    groups = group_runs([load_run(p) for p in a.runs])
+    if len(groups) > len(SERIES):
+        ap.error(f"at most {len(SERIES)} different models per figure")
+    out = Path(a.out)
+    out.mkdir(parents=True, exist_ok=True)
+    plot_curves(groups, out / f"{a.prefix}_curves.png")
+    plot_test(groups, out / f"{a.prefix}_test.png")
+    print("wrote", out / f"{a.prefix}_curves.png", "and", out / f"{a.prefix}_test.png")
+
+
+if __name__ == "__main__":
+    main()

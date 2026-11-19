@@ -26,14 +26,77 @@ def rect_poly(cx, cy, sx, sy, yaw_deg=0.0):
 
 
 def circle_poly(cx, cy, r, sides=CIRCLE_SIDES):
-    """Regular polygon circumscribing the circle, so it covers the circle."""
+    """Regular polygon circumscribing the circle, so it covers the circle.
+
+    Computed vertex by vertex with `math`, exactly as scene_gen.py always did, so
+    regenerated layouts are bit-identical.
+    """
     r /= math.cos(math.pi / sides)
-    a = 2 * math.pi * np.arange(sides) / sides
-    return np.stack([cx + r * np.cos(a), cy + r * np.sin(a)], axis=1)
+    return np.array([(cx + r * math.cos(2 * math.pi * k / sides), cy + r * math.sin(2 * math.pi * k / sides))
+                     for k in range(sides)])
 
 
 def centroid(poly):
-    return np.asarray(poly, dtype=float).mean(axis=0)
+    """Vertex mean (x, y) as plain floats."""
+    return sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly)
+
+
+# ---------------------------------------------------------------- polygon vs polygon (plain Python)
+# Used by scene_gen.py to place obstacles and to compute the per-sample geometry.
+
+def _point_seg_dist(p, a, b):
+    abx, aby = b[0] - a[0], b[1] - a[1]
+    t = ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / (abx * abx + aby * aby or 1e-12)
+    t = max(0.0, min(1.0, t))
+    return math.hypot(p[0] - a[0] - t * abx, p[1] - a[1] - t * aby)
+
+
+def polygons_overlap(a, b):
+    """Separating axis test for two convex polygons."""
+    for poly in (a, b):
+        for i in range(len(poly)):
+            (x1, y1), (x2, y2) = poly[i - 1], poly[i]
+            nx, ny = y2 - y1, x1 - x2
+            pa = [nx * x + ny * y for x, y in a]
+            pb = [nx * x + ny * y for x, y in b]
+            if max(pa) < min(pb) or max(pb) < min(pa):
+                return False
+    return True
+
+
+def clearance(a, b):
+    """Distance between two convex polygons, 0 if they touch."""
+    if polygons_overlap(a, b):
+        return 0.0
+    return min(min(_point_seg_dist(p, q[i - 1], q[i]) for p in s for i in range(len(q))) for s, q in ((a, b), (b, a)))
+
+
+def clip_band(poly, ylo, yhi):
+    """Part of a convex polygon with ylo <= y <= yhi (Sutherland-Hodgman)."""
+    def clip(pts, keep, y):
+        out = []
+        for i, p in enumerate(pts):
+            q = pts[i - 1]
+            if keep(p) != keep(q):
+                out.append((q[0] + (p[0] - q[0]) * (y - q[1]) / (p[1] - q[1]), y))
+            if keep(p):
+                out.append(p)
+        return out
+    pts = clip([tuple(p) for p in poly], lambda p: p[1] >= ylo, ylo)
+    return clip(pts, lambda p: p[1] <= yhi, yhi) if pts else []
+
+
+def free_ahead(footprints, cx, cy, hx, hy):
+    """Free distance from the robot's front (body centre (cx, cy), half size hx, hy) to the first
+    footprint inside its own width; None = nothing ahead. Same formula as `dist_ahead` in scene_gen.py.
+    """
+    ahead = None
+    for poly in footprints:
+        part = clip_band(poly, cy - hy, cy + hy)
+        if part and min(p[0] for p in part) >= cx:
+            d = min(p[0] for p in part) - (cx + hx)
+            ahead = d if ahead is None else min(ahead, d)
+    return ahead
 
 
 def convex_hull(points):
@@ -88,3 +151,35 @@ def points_to_convex_distance(points, poly):
     d = np.linalg.norm(rel - t[..., None] * e[None], axis=-1).min(axis=1)
     d[points_in_convex(p, a)] = 0.0
     return d
+
+
+def sample_geometry(cx, cy, half_size, camera_offset, hfov, obstacles, road_width=4.0):
+    """Per-sample geometry as scene_gen.py writes it to samples.jsonl, for the body centre (cx, cy).
+
+    half_size = robot (hx, hy); camera_offset = (x, y, height) from the body centre; hfov in
+    degrees; obstacles as in scene.json. Same formulas as scene_gen.sample_geometry.
+    """
+    import math
+    hx, hy = half_size
+    foot = rect_poly(cx, cy, 2 * hx, 2 * hy)
+    clear = [clearance(foot, o["footprint"]) for o in obstacles]
+    ahead = free_ahead([o["footprint"] for o in obstacles], cx, cy, hx, hy)
+    nearest = None
+    if obstacles:
+        i = min(range(len(obstacles)), key=clear.__getitem__)
+        ox, oy = centroid(obstacles[i]["footprint"])
+        nearest = {"index": i, "clearance": clear[i], "bearing_deg": math.degrees(math.atan2(oy - cy, ox - cx))}
+    camx, camy = cx + camera_offset[0], cy + camera_offset[1]
+    in_fov = [i for i, o in enumerate(obstacles)
+              if any(p[0] - camx > 0.05 and abs(math.degrees(math.atan2(p[1] - camy, p[0] - camx))) <= hfov / 2
+                     for p in o["footprint"])]
+    return {
+        "robot_center": [cx, cy],
+        "heading_deg": 0.0,
+        "camera_pos": [camx, camy, camera_offset[2]],
+        "dist_ahead": ahead,
+        "nearest_obstacle": nearest,
+        "clearances": clear,
+        "road_edge": {"left": road_width / 2 - (cy + hy), "right": (cy - hy) + road_width / 2},
+        "in_fov": in_fov,
+    }

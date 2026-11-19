@@ -9,12 +9,28 @@ the saved geometry (decided 2026-11-02, see [decisions](../decisions.md)).
 
 Usage and options are listed in the root `CLAUDE.md`.
 
+## Code structure (since 2026-11-09)
+
+| File | Contents |
+|---|---|
+| `isaac_scene.py` | Everything in Isaac Sim: road, lights, robot loading and measuring, obstacle pool and `place_obstacles`, camera, `LidarScan`. Shared with the planned closed-loop test `drive.py`, so both use exactly the same scene. Import it only after creating the `SimulationApp` |
+| `sim_core/geometry.py` | 2D footprint math: `rect_poly`, `circle_poly`, `clearance`, `clip_band`, `centroid` (no Isaac imports) |
+| `scene_gen.py` | Arguments, the robot grid (`grid_positions`), the per-sample geometry (`sample_geometry`) and writing the output |
+
+A layout depends only on its seed: `place_obstacles` draws shape, size, pose
+and colour from `random.Random(seed)`. Any script that calls it with the same
+seed gets the same layout.
+
+The split moved code without changing it. **Not verified yet:** a comparison
+of the old and the new generator on the same layouts (see
+[log](../log.md)).
+
 ## World frame
 
 - Z up, metres.
 - Road along **+X**, centred at the origin: 40 m long (x ∈ [−20, 20]),
   2 lanes × 2 m (y ∈ [−2, 2]). Constants `ROAD_LENGTH`, `LANE_WIDTH`,
-  `NUM_LANES` at the top of the script.
+  `NUM_LANES` at the top of `isaac_scene.py`.
 - Drivable corridor = road + `--shoulder` (default 1.5 m) of grass on each
   side, so y ∈ [−3.5, 3.5].
 - Heading is **fixed at 0°**: the robot always faces +X. "Left" = +Y.
@@ -66,6 +82,33 @@ regenerated alone with `--start <layout> --num 1`.
 - Grid points where the robot would touch an obstacle are skipped.
 - Sample index `i` runs row by row: `ix` = distance index (0 = far),
   `iy` = lateral index (0 = left).
+
+## Planned samples (`--plan`, 2026-11-19)
+
+Instead of the grid, the positions of a layout can be chosen by the tuned directional
+expert ([0008](../proposals/0008-expert-planned-sampling.md), accepted):
+
+```bash
+python3 scene_gen_mujoco.py --plan --start 300000 --num 300 --out data/plans_mj     # MuJoCo, any laptop
+~/isaacsim/python.sh scene_gen.py --robot nomad_r.usd --plan --start 300000 --num 300 --out data/plans --headless
+```
+
+- Per layout (defaults): 25 hot spots, 1 sequence from 6 m before the obstacles (up to 60
+  frames), 2 recovery sequences from the back-off zone (up to 20 frames), perturbations
+  ε = 0.2 in the sequences. About 125 images per layout. Options: `--hotspots`,
+  `--start-seqs`, `--recovery-seqs`, `--start-len`, `--recovery-len`, `--eps`.
+- Same output format as the grid, so all tools work. Samples have `ix = iy = -1` and a
+  `plan` field (kind, sequence, step, expert move, importance), and `scene.json` has
+  `plan` instead of `grid`. `check_dataset.py` draws 10 images per row for such layouts.
+- **Same positions in both generators** for the same seed: `sim_core.planning.planned_positions`
+  with the layout seed, on the layout from `sim_core.layout`, which reproduces Isaac's
+  obstacle draws exactly. `scene_gen.py --plan` compiles but has **not been run on the
+  Isaac PC yet**.
+- `scene_gen_mujoco.py` without `--plan` renders the grid like `scene_gen.py`. Positions and
+  geometry fields are identical to the Isaac dataset (checked on layout 958). It takes
+  ~22 ms per image on the laptop, no lidar.
+- Layout ranges: dataset 0–999, evaluation 100000+, DAgger rollouts 200000+, planned
+  data 300000+.
 
 ## Output
 

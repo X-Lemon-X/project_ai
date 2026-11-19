@@ -43,16 +43,29 @@ perfect and the data generation runs unattended.
 
 | Path | What it is |
 |---|---|
-| `scene_gen.py` | Builds the road scene, places random obstacles per layout and captures camera + lidar over a grid of robot positions |
+| `scene_gen.py` | Dataset generator: places random obstacles per layout and captures camera + lidar over a grid of robot positions. Uses `isaac_scene.py` |
+| `mujoco_scene.py` | MuJoCo version of the scene (renderer only, trial): same layouts via `sim_core/layout.py`, Isaac-like lighting and tone curve. Needs `pip install mujoco`. See `docs/knowledge/mujoco.md` |
+| `drive_mujoco.py`, `closed_loop.py` | Closed-loop test in MuJoCo (same options and outputs as `drive.py`; `--directional` for direction models, `--velocity` for velocity models); `closed_loop.py` = renderer-independent policies, episode loop and scoring |
+| `compare_renderers.py` | Isaac vs MuJoCo on dataset layouts: side-by-side figure and metrics |
+| `isaac_scene.py` | Isaac Sim scene shared by `scene_gen.py` and `drive.py`: road, robot, obstacle pool, camera, lidar. Import only after creating `SimulationApp` |
+| `drive.py` | Closed-loop test in Isaac Sim: camera → policy (`net` = `model.ts`, `expert`, `forward`) → F/L/R step, on unseen layouts (default from 100000). Writes `<model dir>/drive/eval.json` + `episodes.jsonl` |
 | `nomad_r.usd` | The robot (default prim `/nomad_r_urdf`), with all its sensors |
 | `luxonis_oak_d_lite/` | OAK-D Lite camera assets used by the robot |
 | `isaac/` | Livox Mid-360 lidar config + helper script |
 | `check_dataset.py` | Checks a generated dataset (lidar vs geometry, contact sheets). Plain Python + numpy + Pillow |
 | `view_lidar.py` | Interactive viewer: camera image next to a 3D view of the lidar scan and obstacles. Plain Python + matplotlib |
-| `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons, `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader. See `docs/knowledge/expert.md` |
+| `sim_core/` | Simulator-free core (numpy only): `geometry.py` polygons (also used by the generator), `world.py` World + occupancy Grid, `expert.py` Dijkstra cost-to-go expert (best action, path), `dataset.py` dataset loader, `layout.py` obstacle layouts from a seed (same draws as Isaac), `motion.py` action → move (discrete or low-pass-filtered direction), `directional.py` prototype expert with 8 / 16 directions + speed. See `docs/knowledge/expert.md` |
 | `view_plan.py` | Top-down view of a layout: cost-to-go, blocked cells, expert decisions and paths. Plain Python + matplotlib |
+| `dagger.py` | DAgger labeller: labels the frames of `drive.py --save-frames` runs with the expert, adds them as a train part (`<data>/labels_plus_<name>.jsonl`). See `docs/knowledge/training.md` |
+| `plan_samples.py` | Plans which positions to render (hot spots, start and recovery sequences) from the geometry, with the directional expert. Uses `sim_core/planning.py` |
+| `view_field.py` | Decision field of an expert (one arrow per lattice node), current or directional. Plain Python + matplotlib |
+| `scene_gen_mujoco.py` | Dataset generator with MuJoCo (no Isaac Sim): same layouts and output format as `scene_gen.py`; `--plan` = expert-planned hot spots and sequences (0008) |
+| `merge_labels.py` | Adds labels of other datasets to a base labels file as training-only rows (image paths rewritten), e.g. grid + planned samples |
+| `label_directions.py` | 8-direction + speed labels (tuned directional expert) for any labels file → `<labels>_dir.jsonl`, for `train.py --task dir` |
 | `label.py` | Offline labeller: runs the expert on every sample, writes `<data>/labels.jsonl` + `labels_meta.json` |
 | `train.py`, `training/` | PyTorch training of the image → L/F/R network (`dataset.py`, `models.py`, `metrics.py`). Run with `.venv/bin/python`. See `docs/knowledge/training.md` |
+| `plot_runs.py` | Plots runs (learning curves, test metrics) from `config.json`, `metrics.csv`, `test_metrics.json`. Plain Python + matplotlib |
+| `tests/` | Checks of simulator-free code: `python tests/test_motion.py`, `tests/test_dagger.py`, `tests/test_directional.py`, `tests/test_planning.py`, `tests/test_layout.py`, `tests/test_closed_loop.py`, `tests/test_training_dir.py`, `tests/test_generation.py` |
 | `requirements-train.txt` | Python packages for labelling and training (not needed for Isaac Sim) |
 | `runs/` | Training runs (checkpoints, metrics, `model.ts`). Git-ignored |
 | `data/grid/` | Generated output: one `layout_XXXXXX/` folder per obstacle layout |
@@ -127,13 +140,14 @@ python check_dataset.py data/grid --sheets 3
 | `--obstacles` | Folder of obstacle `.usd/.usda/.usdc` files instead of primitives (base at z = 0) |
 | `--out` | Output folder (default `data/grid`) |
 | `--seed` | Base RNG seed |
+| `--plan` | Expert-planned positions (hot spots, start and recovery sequences, 0008) instead of the grid; `--hotspots`, `--start-seqs`, `--recovery-seqs`, `--start-len`, `--recovery-len`, `--eps` |
 | `--headless` | No window |
 
 **World conventions:**
 
 - Z is up, units are metres.
 - The road runs along **+X** and is centred at the origin: 40 m long, 2 lanes of
-  2 m each (`ROAD_LENGTH`, `LANE_WIDTH`, `NUM_LANES` at the top of the script).
+  2 m each (`ROAD_LENGTH`, `LANE_WIDTH`, `NUM_LANES` at the top of `isaac_scene.py`).
 - Robot heading is **fixed at 0°** (facing +X). "Left" = +Y.
 - The road, lane markings and grass are flat boxes. No road asset is needed.
 
@@ -160,8 +174,30 @@ Field meanings are in `docs/knowledge/scene-generator.md`.
 2. ~~Offline labeller~~: done, `label.py` (L / F / R from the cost-to-go expert).
 3. Train a small pretrained CNN: code done (`train.py`). Full ResNet18 and
    small-CNN baseline runs are still to do.
-4. Closed-loop test (`drive.py`): camera → model → command, then measure
-   success and collision rate on new random layouts.
+4. Closed-loop test (`drive.py`): code done. Run a full evaluation of the
+   trained models against the expert and always-forward baselines.
+
+```bash
+# Watch the network drive (GUI), 0.1 s pause per step
+~/isaacsim/python.sh drive.py --model runs/smoke/model.ts --count 3 --delay 0.1
+# Evaluate all three policies on the same 100 unseen layouts
+~/isaacsim/python.sh drive.py --model runs/smoke/model.ts --policy net expert forward --count 100 --headless
+```
+
+Step size: `--step` (forward per F, default 0.2 m), `--side-step` (sideways per
+L/R, default 0.2 m), `--side-forward` (forward part of an L/R step, default 0 =
+pure sideways as in the expert's labels). An episode succeeds when the robot's
+rear is `--goal-after` (1 m) past the last obstacle, because near the road end
+the camera sees scenes that were never in the training data. With pure sideways steps the network
+can still get stuck alternating L/R in place (it has no memory); `--side-forward 0.1`
+avoided that in a first test.
+
+`--filter-alpha a` switches to filtered motion: each decision is a direction
+(F = 0, L = +π/2, R = −π/2), smoothed by a first-order IIR low-pass filter
+(`angle = a·angle + (1−a)·target`, reset to 0 per episode), and the robot moves
+`--step` along the filtered direction. Mixed decisions give diagonal moves, and the
+filter's memory damps L/R alternation. `a = 0` means no smoothing; the time constant
+is about `−1/ln a` steps (a = 0.7 ≈ 3 steps). The expert's rare B stays a plain backward step.
 
 ## Knowledge base
 
@@ -177,7 +213,8 @@ Field meanings are in `docs/knowledge/scene-generator.md`.
 
 ## Notes for contributors
 
-- Keep scene/geometry logic in `scene_gen.py` and training code separate
-  (planned: `train.py`, `drive.py`).
+- Isaac Sim scene code goes in `isaac_scene.py`, 2D geometry and the expert in
+  `sim_core/` (no Isaac imports), training code in `train.py` / `training/`.
+  `scene_gen.py` and `drive.py` are thin scripts on top of them.
 - Don't commit generated data (`data/`) or large binaries without Git LFS.
   `nomad_r.usd` is about 76 MB.

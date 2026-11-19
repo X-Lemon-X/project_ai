@@ -9,6 +9,7 @@ Code lives in the repo root; this folder holds explanations, plans and decisions
 |---|---|
 | [knowledge/](knowledge/) | Facts: how the simulator, robot, sensors and scripts work. Should stay true until the code changes. |
 | [proposals/](proposals/) | Plans and design options that are not built yet. Each has a status. |
+| [handover-2026-11-19.md](handover-2026-11-19.md) | Data, models and runs handed over to the faster PC (Patryk), 2026-11-19. |
 | [log.md](log.md) | Project log for the class: meetings and work sessions, newest first. |
 | [decisions.md](decisions.md) | Short log of decisions taken, newest first, with the reason. |
 | [open-questions.md](open-questions.md) | Things we still have to decide or find out. |
@@ -23,6 +24,7 @@ Knowledge
 - [World model, expert and dataset loader](knowledge/expert.md) (`sim_core/`)
 - [Labelling and training](knowledge/training.md) (`label.py`, `train.py`, `training/`)
 - [Literature](knowledge/literature.md): related papers and what they mean for us
+- [MuJoCo renderer (trial)](knowledge/mujoco.md)
 
 Proposals
 - [0001 Point-mass control model](proposals/0001-point-mass-control.md)
@@ -31,6 +33,8 @@ Proposals
 - [0004 Sequence training](proposals/0004-sequence-training.md)
 - [0005 Control vector](proposals/0005-control-vector.md)
 - [0006 Pipeline: data gathering → training (local / Colab)](proposals/0006-pipeline.md)
+- [0007 Closed-loop failures: what to change next](proposals/0007-closed-loop-fixes.md)
+- [0008 Expert-planned sampling: hot spots, sequences, a view-aware expert](proposals/0008-expert-planned-sampling.md)
 
 ## Conventions
 

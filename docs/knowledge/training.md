@@ -33,6 +33,146 @@ B never occurs, so the network has 3 classes (L, F, R). 8,315 samples (33 %)
 have ties, mostly F = L or F = R in the far rows, and L = R with an obstacle
 dead ahead.
 
+## DAgger labels (`dagger.py`)
+
+Turns closed-loop runs into extra training data
+([0007 A](../proposals/0007-closed-loop-fixes.md#a-dagger-on-the-states-the-network-visits)).
+Plain Python + numpy, no Isaac Sim, no torch.
+
+```bash
+~/isaacsim/python.sh drive.py --model runs/resnet18/model.ts --count 50 --start 100000 --save-frames --headless
+python3 dagger.py runs/resnet18/drive --base data/grid --name dagger_r1
+python3 train.py --data data/grid --labels data/grid/labels_plus_dagger_r1.jsonl --out runs/resnet18_dagger_r1
+```
+
+- Reads `episodes.jsonl`, `eval.json` and `frames/` of each `drive.py` folder.
+  Frame k shows the robot at `path[k]`, so the expert labels exactly the
+  position the network was at.
+- Same expert settings as the base labels (`labels_meta.json`), goal at the road
+  end, as `label.py`. The positions are not grid samples, so they snap to the
+  nearest lattice node (`snap`, ≤ 0.14 m).
+- Output, inside the base dataset: images in `<base>/<name>/` (hard links, or
+  copies on another file system), `labels_<name>.jsonl` (new rows only) and
+  `labels_plus_<name>.jsonl` (base + new) with `_meta.json` files. All new rows
+  are `train`. Val / test stay the original grid layouts, so results remain
+  comparable.
+- Rows whose only best action is B get status `backward`: `train.py` skips them
+  (it trains L / F / R), but they are counted. This shows how often the expert would
+  back off in the states the network reaches.
+- `--max-per-node 3` (default): a robot stuck switching L/R gives many frames
+  of nearly the same position. At most 3 per episode and lattice node are kept.
+- `--policies net` (default): only the network's episodes.
+- Evaluate the retrained model on **other** layouts than the DAgger rollouts
+  (e.g. `drive.py --start 200000`).
+
+Checks (2026-11-19): `tests/test_dagger.py` (fake run, run it with `.venv/bin/python`). On 100 real
+grid layouts used as fake runs, `dist_ahead` equals `samples.jsonl` on all 2,500
+samples (`sim_core.geometry.free_ahead`, same formula as `scene_gen.py`).
+The expert's action equals `labels.jsonl` in 98.8 % of the samples and is among
+the original ties in 99.3 %. The rest differs because of the snapping.
+
+## Direction model (`--task dir`, 2026-11-19)
+
+Step 2 of [0007 D](../proposals/0007-closed-loop-fixes.md#d-output-as-direction--speed):
+instead of L / F / R, the network picks one of 8 directions and a speed.
+
+```bash
+python3 label_directions.py data/grid/labels.jsonl                    # -> labels_dir.jsonl (~1 min)
+python3 label_directions.py data/grid/labels_plus_dagger_r1.jsonl     # -> labels_plus_dagger_r1_dir.jsonl
+python3 train.py --data data/grid --labels data/grid/labels_dir.jsonl --task dir --out runs/dir_001
+python3 drive_mujoco.py --model runs/dir_001/model.ts --directional --count 100 [--filter-alpha 0.7]
+```
+
+- **Labels** (`label_directions.py`): the directional expert with 8 directions and the
+  tuned repulsion (clearance 10, safe_dist 1.0, backward 3,
+  [expert](expert.md#tuning-the-repulsion-so-that-it-backs-off-2026-11-19)) on every row of a
+  labels file. Adds `dir` (index into `DIRS8`: 0 F, 1 FL, 2 L, 3 BL, 4 B, 5 BR, 6 R, 7 FR),
+  `dir_ties`, `dir_costs`, `speed`. Layouts from `scene.json`, or from the seed
+  (`sim_core.layout`) for rows of drive runs, e.g. DAgger frames.
+- **Network**: same backbones, action head with 8 outputs, aux head with 2 outputs
+  (log distance ahead, speed). `model.ts` still returns `(logits, aux)`. Targets are
+  tie-aware over the 8 directions (or soft from `dir_costs` with `--soft-temp`). Mirroring
+  maps FL ↔ FR, L ↔ R, BL ↔ BR. Class weights average mirrored classes.
+- **Metrics**: as for L / F / R, generalised to the classes present. `bal_acc` averages the
+  recall of the directions that occur. Plus `speed_mae`.
+- **Driving**: `closed_loop.NetPolicy` detects the 8 outputs. `sim_core.motion.DirectionalMotion`
+  moves `step · speed` along the direction and low-pass filters the **velocity vector**
+  (`--filter-alpha`), so a slow-down really slows the robot. `direxpert` = the directional
+  expert as a policy: 20/20 layouts with and without filter (MuJoCo).
+
+Label mix with this expert:
+
+| Labels | F | FL + FR | L + R | back (BL, B, BR) | speed < 1 |
+|---|---|---|---|---|---|
+| grid (`labels_dir.jsonl`, train) | 74.4 % | 11.8 % | 13.8 % | **0** | 2.4 % |
+| grid + DAgger r1 (train) | 78.8 % | 11.1 % | 10.0 % | **0** | 2.5 % |
+
+**No backward labels yet**, not even in the DAgger frames: the network's collisions
+happened beside obstacles, never in the back-off zone in front of them. The three back
+classes stay empty until planned recovery sequences
+([0008 B](../proposals/0008-expert-planned-sampling.md#b-sequences)) are rendered, now
+possible in MuJoCo.
+
+Checks: `tests/test_training_dir.py` (targets, mirror permutation = direction
+geometry), `tests/test_motion.py` (DirectionalMotion). A CPU run of the L / F / R task gives
+exactly the numbers it gave before the change.
+
+### Direction model: closed-loop result (2026-11-19)
+
+`resnet18_dir_plans` (grid + planned samples, no DAgger), MuJoCo, layouts 100000–100099
+(summaries in `docs/results/mujoco_drive_dir_plans/`):
+
+| Model | success | stuck | collision | off-road |
+|---|---|---|---|---|
+| baseline L / F / R, discrete | 83 | 17 | 0 | 0 |
+| baseline L / F / R, filter 0.7 | 80 | 0 | 2 | 18 |
+| **direction model, no filter** | **71** | 17 (13 forward ↔ back, 4 left ↔ right) | 3 | 9 |
+| **direction model, velocity filter 0.7** | **46** | 5 | 3 | 46 |
+| directional expert (upper bound) | 100 | 0 | 0 | 0 |
+
+- **The new output alone is worse** than the L / F / R baseline (no DAgger data in either).
+- **False back-offs:** 10.6 % of the network's moves have a backward part, while the expert
+  itself never backs off on its own runs (0 %). The back-off labels come only from recovery
+  starts close in front of obstacles. The network also backs off at the shoulder edge and past
+  the obstacles, which gives forward ↔ back deadlocks.
+- **Filter + diagonal moves → drift off the road:** many FL / FR moves keep a sideways
+  component, the velocity filter integrates it, and the robot slides across the shoulder.
+- The directional expert drives 100 / 100 with the same actions, so the action set is fine.
+- Next: DAgger on the direction model, the velocity model (`--task vel`), asphalt preference (Q15).
+
+## Velocity model (`--task vel`, 2026-11-19)
+
+Continuous output instead of direction classes, as proposed at the 2026-11-19 session: the
+network predicts the velocity **(vx, vy)** directly (forward / left in the robot frame).
+The speed is |v|, backing off is vx < 0, the angle is atan2(vy, vx).
+
+```bash
+python3 train.py --data data/grid --labels data/grid/labels_dir_plans.jsonl --task vel --out runs/vel_plans
+python3 drive_mujoco.py --model runs/vel_plans/model.ts --velocity --count 100 [--filter-alpha 0.7]
+```
+
+- **Why (vx, vy)** and not angle + speed: angle ± 180° with speed ± 1 describes every
+  velocity twice ((0°, −1) = (180°, +1)), so the target is ambiguous. An angle wraps around at
+  ± 180°, and an angle of ± 90° with signed speed jumps at pure sideways moves, which are common.
+  (vx, vy) has none of these problems.
+- **Unit disk by construction:** the head outputs z ∈ R², the model returns
+  v = z · tanh(|z|) / |z| (`training.models.squash_to_disk`), so every output is a valid
+  velocity and the network doesn't have to learn the constraint.
+- **Labels:** the same direction labels as `--task dir` (`label_directions.py`), with target
+  speed × unit vector of the expert's best direction. The expert's tie-break keeps the labels
+  consistent, so left / right ties don't average in the data. Mirroring flips vy.
+- **Loss:** smooth L1 (β = 0.1) on (vx, vy), with each sample weighted by the rarity of its
+  direction (the class weights of the 8 directions), + 0.5 · distance-ahead loss.
+- **Metrics:** the predicted velocity is mapped to the nearest of the 8 directions for `acc`,
+  `bal_acc`, `regret` and `unsafe` (comparable with `dir`), plus `angle_err` (deg), `speed_mae`
+  and `vel_mae` (mean |v − v*|).
+- **Driving:** `sim_core.motion.VelocityMotion` moves `step · v` (clipped to |v| ≤ 1) with the
+  same velocity low-pass filter as the direction model. `closed_loop.NetPolicy` detects a
+  velocity model by its 2 outputs.
+- **Expected trade-off:** no flipping between classes at a decision boundary (the forward ↔
+  back and left ↔ right deadlocks of the direction model), but where two answers are equally
+  good the network can average them (left / right → straight, forward / back → stand still).
+
 ## Model (`training/models.py`)
 
 `DecisionNet` = backbone → 512-d (ResNet18) features → two heads:
@@ -82,4 +222,89 @@ Run outputs: `config.json`, `metrics.csv`, `best.pt`, `last.pt`,
 
 Smoke test (2026-11-03, `--subset 0.1 --epochs 2`, 2000 train images, RTX 5060
 Laptop, about 6 s per epoch): test acc 0.940, bal_acc 0.744 (recall L 0.60,
-F 1.00, R 0.64), unsafe 0, distance error 2.0 m. Full runs: to do.
+F 1.00, R 0.64), unsafe 0, distance error 2.0 m.
+
+### Full runs
+
+All on the first dataset (1000 layouts, labels from `label.py` with default
+settings), default `train.py` settings (12 epochs, batch 64). `*_001` runs use
+seed 0; `*_s1` / `*_s2` runs use `--seed 1` / `--seed 2` and `--workers 2 --preload`, which made the
+epochs about 25 % faster on Colab without changing the training itself.
+Metrics are on the **test** layouts 900–999 (2,500 images) for the epoch with
+the best validation balanced accuracy.
+
+| Run | Date | Where | Best epoch | acc | bal_acc | L | F | R | regret | unsafe | dist MAE |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `resnet18_001` | 2026-11-07 | Colab T4, ~100 s/epoch, 21 min | 11 / 11 | 0.990 | 0.959 | 0.96 | 1.00 | 0.92 | 0.0045 | 0 | 0.57 m |
+| `smallcnn_001` | 2026-11-07 | Colab T4, ~96 s/epoch, 19 min | 10 / 11 | 0.988 | 0.950 | 0.96 | 1.00 | 0.90 | 0.0055 | 0 | 0.56 m |
+| `resnet18_s1` | 2026-11-07 | Colab T4, ~75 s/epoch, 15 min | 10 / 11 | 0.990 | 0.956 | 0.94 | 1.00 | 0.92 | 0.0044 | 0.0004 | 0.60 m |
+| `smallcnn_s1` | 2026-11-07 | Colab T4, ~68 s/epoch, 14 min | 11 / 11 | 0.987 | 0.947 | 0.91 | 1.00 | 0.93 | 0.0059 | 0.0004 | 0.57 m |
+| `resnet18_s2` | 2026-11-07 | Colab T4, ~75 s/epoch, 15 min | 8 / 11 | 0.992 | 0.965 | 0.96 | 1.00 | 0.94 | 0.0043 | 0 | 0.63 m |
+| `smallcnn_s2` | 2026-11-07 | Colab T4, ~67 s/epoch, 14 min | 10 / 11 | 0.987 | 0.949 | 0.90 | 1.00 | 0.95 | 0.0065 | 0.0004 | 0.55 m |
+
+Over the three seeds (test, mean and min-max):
+
+| Model | bal_acc | recall L | recall R | acc | unsafe (per run) |
+|---|---|---|---|---|---|
+| ResNet18 (pretrained) | **0.960** (0.956-0.965) | 0.951 (0.944-0.955) | 0.929 (0.923-0.940) | 0.991 | 0, 0.0004, 0 |
+| Small CNN (from scratch) | **0.949** (0.947-0.950) | 0.923 (0.905-0.955) | 0.925 (0.896-0.945) | 0.987 | 0, 0.0004, 0.0004 |
+
+Unsafe 0.0004 = 1 of 2,500 images.
+
+`resnet18_001`:
+- Validation bal_acc: 0.788 after the frozen epoch 0, 0.939 after the first
+  full fine-tuning epoch, then slowly up to 0.974 at epoch 11. The best epoch
+  is the last one, so more epochs may still help a little.
+- Test confusion (rows = expert action after tie-break, columns = predicted L, F, R):
+  `[[170, 0, 8], [143, 1884, 112], [12, 2, 169]]`. Most off-diagonal entries
+  are ties (sideways as good as forward, or L = R with an obstacle dead
+  ahead), which the tie-aware acc counts as correct. Only about 25 of 2,500
+  predictions are not among the expert's best actions.
+- Limits: open-loop (per image), one seed, test layouts come from the same
+  generator with the same road look, lighting and camera. Closed-loop driving
+  (`drive.py`) and road-style generalization are not tested yet.
+
+`smallcnn_001` (5 conv blocks, random init):
+- Validation bal_acc 0.884 after epoch 0, 0.958 at the best epoch (10).
+- Test confusion: `[[170, 0, 8], [151, 1860, 128], [16, 3, 164]]`.
+
+![Learning curves, 3 seeds per model](../figures/2026-11-07_seeds_curves.png)
+
+![Test metrics, 3 seeds per model](../figures/2026-11-07_seeds_test.png)
+
+Figures from `plot_runs.py`. The small run files (`config.json`, `metrics.csv`,
+`test_metrics.json`) of each run are kept in [`docs/results/`](../results/):
+
+```bash
+python3 plot_runs.py docs/results/resnet18_{001,s1,s2} docs/results/smallcnn_{001,s1,s2} --out docs/figures --prefix 2026-11-07_seeds
+```
+
+Inference with `resnet18_001`'s `model.ts` on test layout 950 (one cube), all
+25 grid positions. Rows go from far (top, 10 m gap) to near (bottom, 1 m),
+columns from left to right across the road. A title in green means the
+prediction is one of the expert's best actions. All 25 are correct. Where the
+expert has a tie (F/L, F/R), the model splits about 50/50 between the two.
+
+![Inference on layout 950](../figures/2026-11-07_inference_layout950.png)
+
+On validation the final gap is similar (0.969 vs 0.959, mean of the last
+epoch). The small CNN's distance error is noisy in the first epochs (one run
+jumped to 5.3 m at epoch 2) but all runs end at about 0.55 m.
+
+**Comparison.** Over three seeds, the pretrained ResNet18 reaches test bal_acc
+0.960 and the from-scratch small CNN 0.949. The gap is small but
+**consistent**: every ResNet18 run beats every small-CNN run, and the
+small CNN's seeds lie within 0.003 of each other. Most of the gap is in
+recall L (0.951 vs 0.923). The small CNN is also less stable there between
+seeds (0.905-0.955). Both are equally safe (at most 1 unsafe prediction in 2,500
+images) and estimate distance equally well. Pretraining's clearer benefit is
+speed: about 0.94 val bal_acc after one fine-tuning epoch, which the small CNN
+reaches only after about 8. The images are simple and uniform (one road style,
+one lighting, plain-coloured obstacles), and the benchmark is close to
+saturated. To tell models apart, the data needs more
+visual variety, plus held-out styles
+([0002](../proposals/0002-dataset-generation.md#road-appearance-for-generalization)).
+
+Both runs took about the same time per epoch (~96–104 s) although ResNet18 is
+much heavier. On Colab (2 CPU cores) the PNG decoding limits the speed, not the
+GPU. `--workers 2 --preload` should help.

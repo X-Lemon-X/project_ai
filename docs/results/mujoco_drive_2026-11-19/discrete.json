@@ -1,0 +1,102 @@
+{
+  "renderer": "mujoco",
+  "args": {
+    "model": "runs/resnet18_001/model.ts",
+    "policy": [
+      "net",
+      "expert",
+      "forward"
+    ],
+    "count": 100,
+    "start": 100000,
+    "seed": 0,
+    "min_obstacles": 1,
+    "max_obstacles": 3,
+    "step": 0.2,
+    "side_step": 0.2,
+    "side_forward": 0.0,
+    "filter_alpha": null,
+    "start_x": -17.0,
+    "start_y": 0.0,
+    "goal_after": 1.0,
+    "goal_x": 18.0,
+    "max_steps": 0,
+    "shoulder": 1.5,
+    "out": "runs/mj_eval/discrete",
+    "save_frames": false,
+    "device": null
+  },
+  "robot": {
+    "half_size": [
+      0.5374960117042066,
+      0.5235000565226859
+    ]
+  },
+  "road": {
+    "width": 4.0,
+    "lane_width": 2.0,
+    "length": 40.0,
+    "shoulder": 1.5
+  },
+  "seconds": 679.6,
+  "summary": {
+    "net": {
+      "episodes": 100,
+      "success_rate": 0.83,
+      "collision_rate": 0.0,
+      "off_road_rate": 0.0,
+      "timeout_rate": 0.17,
+      "status": {
+        "success": 83,
+        "timeout": 17
+      },
+      "mean_progress": 0.9247709999999999,
+      "mean_steps_success": 113.97590361445783,
+      "mean_min_clearance": 1.2365,
+      "min_min_clearance": 0.0669,
+      "actions": {
+        "F": 9933,
+        "R": 2632,
+        "L": 2688
+      }
+    },
+    "expert": {
+      "episodes": 100,
+      "success_rate": 0.96,
+      "collision_rate": 0.0,
+      "off_road_rate": 0.04,
+      "timeout_rate": 0.0,
+      "status": {
+        "success": 96,
+        "off_road": 4
+      },
+      "mean_progress": 0.996216,
+      "mean_steps_success": 114.8125,
+      "mean_min_clearance": 0.5383450000000001,
+      "min_min_clearance": 0.4538,
+      "actions": {
+        "F": 10743,
+        "R": 341,
+        "L": 371
+      }
+    },
+    "forward": {
+      "episodes": 100,
+      "success_rate": 0.24,
+      "collision_rate": 0.76,
+      "off_road_rate": 0.0,
+      "timeout_rate": 0.0,
+      "status": {
+        "collision": 76,
+        "success": 24
+      },
+      "mean_progress": 0.836235,
+      "mean_steps_success": 101.625,
+      "mean_min_clearance": 0.067786,
+      "min_min_clearance": 0.0,
+      "actions": {
+        "F": 8960
+      }
+    }
+  }
+}

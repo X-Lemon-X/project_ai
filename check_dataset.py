@@ -68,13 +68,20 @@ def check_lidar(layouts):
 
 def contact_sheet(lay, out):
     scene = json.loads((lay / "scene.json").read_text())
-    nx, ny = scene["grid"]["nx"], scene["grid"]["ny"]
+    samples = [json.loads(line) for line in open(lay / "samples.jsonl")]
     size = scene["camera"]["resolution"][0]
+    if "grid" in scene:                      # nx x ny grid, as scene_gen.py places it
+        nx, ny = scene["grid"]["nx"], scene["grid"]["ny"]
+        cell = {s["i"]: (s["iy"], s["ix"]) for s in samples}
+    else:                                    # planned samples (--plan): 10 per row, in sample order
+        ny = 10
+        nx = (len(samples) + ny - 1) // ny
+        cell = {s["i"]: (k % ny, k // ny) for k, s in enumerate(samples)}
     sheet = Image.new("RGB", (ny * size, nx * size), "black")
     draw = ImageDraw.Draw(sheet)
-    for line in open(lay / "samples.jsonl"):
-        s = json.loads(line)
-        x, y = s["iy"] * size, s["ix"] * size
+    for s in samples:
+        col, row = cell[s["i"]]
+        x, y = col * size, row * size
         sheet.paste(Image.open(lay / s["rgb"]), (x, y))
         ahead = "-" if s["dist_ahead"] is None else f"{s['dist_ahead']:.1f}"
         draw.text((x + 3, y + 3), f"y={s['robot_center'][1]:+.1f} ahead={ahead} fov={s['in_fov']}", fill="yellow")

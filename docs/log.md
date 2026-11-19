@@ -6,6 +6,395 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-19 — Direction model results (first look), velocity model
+
+**Done**
+- `resnet18_dir_plans` (8 directions + speed, grid + planned samples) trained on Colab. Test on
+  the Isaac grid: bal_acc 0.910 over the 5 directions that occur there, unsafe 0.
+- First closed-loop look (MuJoCo, no filter, 33 of 100 layouts): it **does back off**
+  (10.5 % of its moves) and slows down, but succeeds less often than the baseline (25 vs 29).
+  It has a new deadlock: forward ↔ back at the shoulder edge, often already past the
+  obstacles. The old left ↔ right deadlock appears once.
+- `--task vel`: continuous velocity output (vx, vy) in the unit disk (squashed by
+  construction), same labels. `VelocityMotion`, `drive_mujoco.py --velocity`. Tests extended.
+  The lfr and dir tasks are unchanged (same CPU check numbers).
+
+- **Full result (100 layouts):** direction model 71 % success without filter (17 stuck, 13 of them
+  forward ↔ back), 46 % with the velocity filter (46 off-road). Baseline 83 / 80 %, directional
+  expert 100 %. The network backs off in 10.6 % of its moves, the expert in 0 %: false back-offs
+  away from obstacles. The new output alone is no improvement.
+  → [training](knowledge/training.md#direction-model-closed-loop-result-2026-11-19)
+
+**Next**
+- DAgger round on the direction model (its own false back-offs and drift, labelled).
+- Train `--task vel` on Colab with `labels_dir_plans.jsonl` and compare.
+- Asphalt preference (Q15): almost all failures are at the shoulder edge.
+
+---
+
+## 2026-11-19 — DAgger control result, session wrap-up
+
+**Done**
+- Control model A (`resnet18_mjgrid`: grid + MuJoCo renders of the grid positions, same size as
+  DAgger) evaluated in MuJoCo. All 300 episodes: baseline 260 successes (17 stuck, 5
+  collisions, 18 off-road), control A 276 (9 / 8 / 7), **DAgger r1 287 (0 / 0 / 13)**.
+- Conclusions:
+  - DAgger's own effect, against the equal-sized control: no stuck runs, no collisions.
+  - More and more varied data (A) explains part of the gain, mainly fewer off-road failures
+    with the filter. Not yet attributed (more data, two renderers or longer training).
+  - DAgger's remaining failure is overshooting the shoulder edge.
+  - Per-image test scores don't predict driving.
+  → [mujoco](knowledge/mujoco.md#closed-loop-test-in-mujoco-drive_mujocopy-2026-11-19)
+- Handover page for Patryk ([handover-2026-11-19](handover-2026-11-19.md)): data, models,
+  runs, Isaac tasks.
+- Status updates: 0007 (A done, D implemented, E tuned), 0008 accepted, Q16 / Q19 / Q20 answered.
+
+**Next directions**, in this order:
+1. Train and evaluate the direction model on grid + planned samples
+   (`labels_dir_plans.jsonl`). Does it back off, and does it stop overshooting the edge?
+2. **Road-style randomization** (line types, edge lines, shoulders) in the MuJoCo generator,
+   with held-out styles for testing. Requested by the supervisor on 2026-10-21 and still open.
+3. Asphalt preference in the expert (Q15), against the edge overshoot: relabel only.
+4. DAgger round 2, on the DAgger or the direction model.
+5. Memory (GRU on frozen features) with the planned sequences and rollouts.
+6. Isaac confirmation of the MuJoCo results (Patryk), and the Isaac-only tasks on the
+   handover page.
+7. A results overview page (`docs/knowledge/results.md`) for the next meeting.
+
+---
+
+## 2026-11-19 — Planned dataset (0008 accepted) for the direction model
+
+**Done**
+- Proposal 0008 accepted. `scene_gen_mujoco.py --plan` (and `scene_gen.py --plan` for
+  Isaac): the tuned directional expert picks hot spots and start / recovery sequences
+  per layout. → [scene-generator](knowledge/scene-generator.md#planned-samples---plan-2026-11-19)
+- Generated `data/plans_mj`: 300 layouts (300000–300299), 37,100 images, MuJoCo,
+  ~6 s per layout on the laptop.
+- Direction labels: F 53 %, diagonal 20 %, sideways 20 %, **back 7.0 %** (grid: 0 %),
+  speed < 1 in 9.3 %. First data with back-off examples.
+- `merge_labels.py`: `labels_dir_plans.jsonl` (grid + planned, 57,100 train) and
+  `labels_dir_dagger_plans.jsonl` (+ DAgger r1, 77,115 train). Val / test stay the Isaac
+  grid (no back labels there, so back-off is only measurable in closed loop).
+- For Colab: `data/plans_mj_dir.zip` (207 MB).
+
+**DAgger r1, closed loop in MuJoCo** (100 layouts, `resnet18_dagger_r1` vs `resnet18_001`):
+discrete 83 → **98 %** (stuck 17 → 0), side steps + forward 97 → **98 %** (collisions 3 → 0),
+filter 80 → **91 %** (off-road 18 → 9, collisions 2 → 0). No collision in 300 episodes. The
+remaining failures step over the outer edge of the shoulder. Control model (A) still to be
+evaluated. → [mujoco](knowledge/mujoco.md#closed-loop-test-in-mujoco-drive_mujocopy-2026-11-19)
+
+---
+
+## 2026-11-19 — Direction model: labels, training, driving (step 2 of 0007 D)
+
+**Done** (branch `feature/direction-model`)
+- `label_directions.py`: 8-direction + speed labels from the tuned directional expert, for
+  any labels file (grid, grid + DAgger). Grid: F 74 %, diagonal 12 %, sideways 14 %, back 0.
+- `train.py --task dir`: 8 direction logits, aux = (log distance, speed), mirrored directions,
+  generic metrics. L / F / R training is unchanged (same numbers on a CPU check).
+- `DirectionalMotion` (velocity low-pass filter), direction support in `closed_loop.py`,
+  `drive_mujoco.py --directional`, policy `direxpert`: 20/20 in MuJoCo.
+- Tests: `tests/test_training_dir.py`, `tests/test_motion.py`.
+  → [training](knowledge/training.md#direction-model---task-dir-2026-11-19)
+
+**Next**
+- Train `--task dir` on Colab (after the DAgger runs), evaluate with `drive_mujoco.py --directional`.
+- Backward labels: render planned recovery sequences (0008 B) in MuJoCo.
+
+---
+
+## 2026-11-19 — DAgger round 1 in MuJoCo: data
+
+**Done**
+- Rollouts of `resnet18_001` with `drive_mujoco.py --save-frames` on layouts that are
+  neither in the dataset nor in the evaluation: 200000–200059 (discrete steps),
+  200100–200159 (side steps with 0.1 m forward), 200200–200259 (filter 0.7). 180 episodes,
+  21,611 frames. Success 90 / 93 / 80 %, as in the evaluation.
+- `dagger.py`: 20,032 labelled frames (20,015 trainable, max. 3 per lattice node and
+  episode), F 95.1 %, L 3.3 %, R 1.6 %, B 0. In 4.3 % of the frames the network's move is not among the expert's
+  best (292 F where the expert says L, 232 L / 175 R where it says F, 84 wrong side),
+  spread over lateral positions between the grid columns.
+- Control set (`render_dataset_mujoco.py`): all 20,000 training grid samples re-rendered
+  in MuJoCo with their labels. It separates "new positions" from "MuJoCo images".
+- For Colab: `data/grid_r1_parts.zip` (201 MB, new parts only; unzip on top of `grid.zip`).
+
+**Next**
+- Train on Colab: ResNet18 on `labels_plus_dagger_r1.jsonl` (B) and on
+  `labels_plus_mujoco_grid.jsonl` (A, control), same settings as `resnet18_001`.
+- Evaluate both with `drive_mujoco.py` on 100000–100099, 3 motion modes, against the
+  baseline (83 / 97 / 80 %).
+
+---
+
+## 2026-11-19 — Closed-loop test in MuJoCo (`drive_mujoco.py`)
+
+**Done**
+- `drive_mujoco.py` + `closed_loop.py`: `drive.py` with the MuJoCo renderer, same
+  options, layouts and outputs. Runs on the laptop (CPU PyTorch, ~30 ms per step).
+- ResNet18 trained on Isaac images (`resnet18_001`), 100 unseen layouts: success
+  **83 %** with discrete steps (17 stuck), **97 %** with side steps that also go 0.1 m forward
+  (3 collisions), **80 %** with the low-pass filter (18 off-road, 2 collisions). Expert
+  100 %, always forward 24 %. The 3 layouts of the first Isaac test end exactly as
+  there. → [mujoco](knowledge/mujoco.md#closed-loop-test-in-mujoco-drive_mujocopy-2026-11-19)
+- Failure analysis: stuck and off-road happen 1.5–6 m before the obstacles at
+  lateral positions between the 5 grid columns (never seen in training);
+  collisions happen beside an obstacle after it leaves the camera's view.
+- Fixed the expert in the closed-loop test (it drifted off-road in 4 % of the runs
+  because the 0.2 m steps don't match its 0.198 m lattice). `drive.py` still has
+  the old code.
+
+**Next**
+- A DAgger round entirely in MuJoCo: `drive_mujoco.py --save-frames`, `dagger.py`,
+  retrain on Colab, evaluate on other layouts.
+- Switch `drive.py` to `closed_loop.py` (test on the Isaac PC).
+
+---
+
+## 2026-11-19 — MuJoCo side-by-side trial
+
+**Done**
+- `sim_core/layout.py`: the Isaac obstacle draws in pure Python. Reproduces all
+  1000 layouts of `data/grid` exactly, including the obstacle colours (`tests/test_layout.py`).
+- `mujoco_scene.py`: the scene in MuJoCo (renderer only). Isaac's camera, sun,
+  dome light and tone curve were measured on layout 958 and matched.
+- `compare_renderers.py`: side by side + metrics. On layout 958 and 20 more
+  layouts: mean pixel difference 3.6 / 255, road markings IoU 0.89, obstacle
+  IoU ~0.64 (limited by Isaac's soft contact shadows). ~10 ms per image on the laptop.
+  → [mujoco](knowledge/mujoco.md)
+
+**Next**
+- Decide: MuJoCo only for development (fast closed-loop tests, DAgger, planned
+  samples), or also for training data. Possible test: a network trained on Isaac
+  images, driven in MuJoCo (and the other way round).
+
+---
+
+## 2026-11-19 — Planned sampling and view-aware term
+
+**Done**
+- `sim_core/planning.py` + `plan_samples.py`: plan hot spots and sequences per layout
+  from the geometry, before rendering ([0008](proposals/0008-expert-planned-sampling.md)).
+  On 100 test layouts the planned samples contain 7.3 % back-off labels (the 5 × 5
+  grid: 0 %), only 51 % straight-on (grid: 74 %), and the recovery
+  sequences start in the back-off zone. → [expert](knowledge/expert.md#planned-sampling-plan_samplespy-sim_coreplanningpy-2026-11-19)
+- `Costs.visibility`: view-aware penalty (obstacles covering > 50 % of the view).
+  Off by default. It hardly changes decisions: the tuned repulsion already backs
+  off where the view is blocked.
+- Tests: `tests/test_planning.py`.
+
+**On hold**
+- Rendering the plans (`scene_gen.py --positions`, layout sampling in `sim_core`):
+  waits for the MuJoCo decision (Q19).
+
+---
+
+## 2026-11-19 — Directional expert (prototype)
+
+**Done**
+- `sim_core/directional.py`: expert with 8 or 16 move directions (diagonals,
+  backward) and a speed label, same costs as the current expert. Test:
+  `tests/test_directional.py`.
+- Feasibility check on all 25,000 samples: all paths reach the goal, the
+  direction labels agree with the L / F / R labels in 99.5 % (8 directions),
+  paths are smoother and dodges start earlier. **No sample needs a backward
+  move and almost none needs slowing down**, because the robot can always
+  step sideways and every grid row is ≥ 1 m from the obstacles.
+  → [expert](knowledge/expert.md#directional-expert-prototype-sim_coredirectionalpy)
+- MuJoCo twin of the scene: considered and parked (Q19).
+- `view_field.py`: decision field of an expert (arrow per lattice node). With the
+  current costs the expert does **not** back off near obstacles (sideways instead).
+- Tuned the repulsion: `clearance 10, safe_dist 1.0` gives a back-off zone within
+  ~0.5 m in front of obstacles (≈ 50 % of the near positions back off), paths
+  keep ~1 m away, all reach the goal. Grid samples still get no backward labels
+  (all ≥ 1 m away): they need DAgger states or samples closer than 1 m.
+- Ideas recorded as [0008](proposals/0008-expert-planned-sampling.md): the expert
+  picks hot spots (where a wrong move is costly) and sequences (from the start,
+  recovery from the back-off zone) before rendering; a view-aware expert that
+  backs off so the memoryless network can see the free side; later an expert
+  that only knows what has been seen.
+
+**Next**
+- Decide 8 vs 16 directions (Q20). Then: labeller for direction labels,
+  `train.py` with a direction head (and later a speed head), and `drive.py`
+  motion along the predicted direction.
+- Speed / back-off labels need states near obstacles: DAgger rollouts first.
+
+---
+
+## 2026-11-19 — DAgger labeller
+
+**Done**
+- `dagger.py`: labels the frames that `drive.py --save-frames` saves with the
+  expert at the positions the robot was really at. It adds them as an extra
+  train part to the grid dataset (`labels_plus_<name>.jsonl` for `train.py`).
+  Repeated frames of a stuck robot are capped per lattice node. Pure-B labels
+  are kept but skipped in training.
+  → [training](knowledge/training.md#dagger-labels-daggerpy)
+- `sim_core.geometry.free_ahead`: the generator's `dist_ahead` formula, usable
+  without Isaac Sim.
+- Checks: `tests/test_dagger.py`. On 100 real layouts used as fake runs:
+  `dist_ahead` identical on all 2,500 samples, expert action identical to
+  `labels.jsonl` in 98.8 % (rest: snapping to the lattice).
+
+**Next**
+- On Patryk's PC: `drive.py --save-frames` with the current ResNet18 on about 50
+  layouts, then `dagger.py`, retrain, and evaluate on other layouts.
+
+---
+
+## 2026-11-18 — Meeting with the supervisor: closed-loop problems
+
+**Discussed**
+- Closed-loop driving (`drive.py`) shows problems the per-image metrics don't:
+  the network sometimes gets **stuck**, alternating left-right-left-right.
+- **Low-pass filter** (our proposal, `--filter-alpha`): the robot gets unstuck
+  and drives smoothly, but it hardly ever goes back. The deadlock had been
+  stopping it in front of obstacles, so with the filter **crashes** became
+  possible.
+- Supervisor's proposals:
+  - **More data with many more cases.**
+  - **Memory in the model.**
+  - **Side cameras** (`camera_left`, `camera_right`) as extra input, even if
+    it might feel like "easy mode".
+- Shared idea: the **fixed heading** may hold the model back. **Rotation**
+  would let it orient toward the free side.
+- Our ideas:
+  - **Change the output definition.** Discrete L/F/R fits a continuous
+    world badly. Instead, output a direction (as in the filter) plus a
+    translation or speed, so the network can decide to go back.
+  - **Hybrid expert:** Dijkstra as now, plus a potential field that repels the
+    robot from obstacles, so it can back off before turning to go forward.
+
+**Follow-up**
+- All ideas collected and ordered in
+  [0007 closed-loop fixes](proposals/0007-closed-loop-fixes.md), with an
+  analysis of why the filter caused crashes (no stop / back action in the
+  labels, B never occurs) and of the tie trap for a continuous direction output.
+
+---
+
+## 2026-11-18 — Low-pass-filtered steering in `drive.py`
+
+**Done**
+- `sim_core/motion.py`: `DiscreteMotion` (the old fixed F / L / R steps) and
+  `FilteredMotion`: decisions coded as directions F = 0, L = +π/2, R = −π/2,
+  filtered by a first-order IIR low-pass (`angle = α·angle + (1−α)·target`);
+  each step moves `--step` along the filtered direction, so the robot can drive
+  diagonally. Enabled in `drive.py` with `--filter-alpha α`.
+- `tests/test_motion.py`: checks of both motion modes.
+
+**Next**
+- Evaluate `net` with a few α values (e.g. 0.5, 0.7, 0.85) against discrete moves
+  on the same layouts.
+
+---
+
+## 2026-11-12 — Closed-loop test `drive.py`
+
+**Done**
+- `drive.py`: drives the robot in the training scene (`isaac_scene.py`) on
+  layouts outside the dataset (seeds from 100000). Each step: camera image →
+  policy → one F / L / R teleport step. The episode ends on success
+  (x ≥ 18 m), collision (checked every 2 cm along the step), leaving road +
+  shoulders, or timeout. Policies: `net` (TorchScript `model.ts`), `expert`,
+  `forward`. Step sizes are options: `--step`, `--side-step`,
+  `--side-forward`.
+- PyTorch is loaded from Isaac Sim's `omni.isaac.ml_archive/pip_prebundle`.
+- Exported `runs/smoke/model.ts` from `best.pt` (epoch 7, val bal_acc 0.963).
+  The run in `runs/smoke/` stopped at epoch 7, so it had no `model.ts`.
+- First test, 3 layouts (100000–100002), 0.2 m steps, goal x = 18 m:
+  - pure sideways steps: net 1/3 success, 2 timeouts (stuck alternating
+    L/R in place: once at x = 16.6 m, past all obstacles and close to the road end,
+    once at x = −5.4 m in front of them); expert 3/3; forward 1/3 (2 collisions).
+  - `--side-forward 0.1`: net 3/3 success, min clearance 0.23 m.
+- Changed the goal: success once the robot's rear is `--goal-after` (1 m) past
+  the last obstacle (`--goal-x` 18 m stays the upper limit). Near the road end
+  the camera sees grass and the road edge, which never appeared in the training data, and
+  the network kept moving sideways there. Same 3 layouts, pure sideways steps: net 2/3
+  (the stop in front of the obstacles in layout 100002 remains), expert 3/3, forward 1/3.
+
+**Next**
+- Full evaluation (≥ 100 layouts) of the ResNet18 and small-CNN runs, with
+  and without `--side-forward`.
+- The L/R oscillation is the expected weakness of a memoryless classifier;
+  candidates: diagonal moves, action smoothing, DAgger on the visited states.
+
+---
+
+## 2026-11-09 — Shared Isaac Sim scene module (start of the closed-loop test)
+
+**Done**
+- Local full run: ResNet18, 20 epochs, seed 0, on the RTX 5060 Laptop at about
+  22 s per epoch (Colab T4: 75–100 s). Test bal_acc 0.965, unsafe 0, best
+  epoch 9. Epochs after 9 didn't help. It's in `runs/smoke/` (a misleading
+  name, because it overwrote the 2-epoch smoke test).
+- Checked that Isaac Sim's bundled PyTorch (2.11, in
+  `extsDeprecated/omni.isaac.ml_archive/pip_prebundle`) loads `model.ts`
+  exported with torch 2.15: 1.3 ms per image on the GPU, 7.6 ms on CPU. So
+  `drive.py` can run the network inside Isaac Sim, with no second process.
+- Split `scene_gen.py`, so the closed-loop test uses exactly the training scene:
+  - `isaac_scene.py` (new): road, robot, obstacle pool, camera and lidar.
+    Code moved unchanged; settings that came from global `args` are now
+    parameters.
+  - `sim_core/geometry.py`: took over the generator's polygon functions
+    (`clearance`, `clip_band`, `polygons_overlap`). `circle_poly` and
+    `centroid` now compute exactly as the generator did.
+  - `scene_gen.py`: argument parsing, the grid, the per-sample geometry and
+    writing the output. Its options and output format are unchanged.
+- **Not verified yet:** the check that the refactored generator writes the
+  same layouts as before (2 layouts rendered with the old and the new code,
+  then compared) was interrupted.
+
+**Next**
+- Run that check: old `scene_gen.py` from git vs the new one, comparing
+  `scene.json`, `samples.jsonl`, images and lidar.
+- `drive.py`: closed-loop test. Policies: network / expert / always-forward.
+  Start at x = −17 m, step ≈ 0.2 m, goal x = 18 m. Fail on collision, on
+  leaving the corridor, or on timeout. New layout seeds.
+
+---
+
+## 2026-11-07 — First full training runs (ResNet18 and small CNN, Colab)
+
+**Done**
+- Got the dataset from the colleague (1000 layouts, 25,000 samples). Ran
+  `label.py` locally: the labels match the 2026-11-03/04 numbers exactly
+  (F 86 %, L 7 %, R 7 %, 8,315 ties, no infeasible layouts).
+- Trained `resnet18` (ImageNet-pretrained, default settings) on Colab with a
+  T4 GPU: 12 epochs, about 21 min.
+- Test result on 100 held-out layouts: tie-aware accuracy **0.990**, balanced
+  accuracy **0.959** (recall L 0.96, F 1.00, R 0.92), **no unsafe moves**,
+  distance-ahead error 0.57 m. Details →
+  [training results](knowledge/training.md#full-runs).
+- Trained the `smallcnn` baseline (from scratch) the same way: test balanced
+  accuracy **0.950** (L 0.96, F 1.00, R 0.90), accuracy 0.988, no unsafe
+  moves, distance error 0.56 m. That is practically the same as ResNet18, so
+  pretraining gives little on this visually uniform dataset.
+- Repeated both models with seeds 1 and 2. Over three seeds: ResNet18 test
+  balanced accuracy **0.960** (0.956-0.965), small CNN **0.949**
+  (0.947-0.950). Every ResNet18 run beats every small-CNN run, so the gap is
+  small but consistent. Most of it is in recall L. Unsafe predictions: at most
+  1 of 2,500 images per run.
+- Added `plot_runs.py` and the figures `docs/figures/2026-11-07_seeds_*.png`
+  (learning curves and test metrics, mean and min-max over the three seeds) for
+  the meeting.
+- Ran inference with the exported model on test layout 950 in Colab: all 25
+  images correct ([figure](figures/2026-11-07_inference_layout950.png)). Run
+  files are kept in `docs/results/`.
+
+**Caveats**
+- Open-loop (per image) only, one seed, and the test layouts share the road
+  look, lighting and camera of the training data.
+
+**Next**
+- Closed-loop test (`drive.py`).
+- Road-appearance randomization (line types), as discussed with the
+  supervisor on 2026-10-21. The current dataset is too uniform to tell
+  models apart.
+
+---
+
 ## 2026-11-03/04 — Labeller and training pipeline
 
 **Done**
@@ -54,7 +443,8 @@ linked pages; this file is the short version.
 **Next**
 - ~~`label.py`: write the labels for all samples.~~ Done, see the entry above.
 - ~~Choose the label scheme (Q14).~~ Done: L / F / R. `lookahead` stays at 5 m for now.
-- Move the polygon functions of `scene_gen.py` to `sim_core/geometry.py`.
+- ~~Move the polygon functions of `scene_gen.py` to `sim_core/geometry.py`.~~
+  Done 2026-11-09, see the entry above.
 
 ---
 
