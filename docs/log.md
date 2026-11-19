@@ -19,9 +19,16 @@ linked pages; this file is the short version.
   construction), same labels. `VelocityMotion`, `drive_mujoco.py --velocity`. Tests extended.
   The lfr and dir tasks are unchanged (same CPU check numbers).
 
+- **Full result (100 layouts):** direction model 71 % success without filter (17 stuck, 13 of them
+  forward ↔ back), 46 % with the velocity filter (46 off-road). Baseline 83 / 80 %, directional
+  expert 100 %. The network backs off in 10.6 % of its moves, the expert in 0 %: false back-offs
+  away from obstacles. The new output alone is no improvement.
+  → [training](knowledge/training.md#direction-model-closed-loop-result-2026-11-19)
+
 **Next**
-- Finish the direction-model evaluation (filter run, directional-expert upper bound).
-- Train `--task vel` on Colab with `labels_dir_plans.jsonl` and compare it with the direction model.
+- DAgger round on the direction model (its own false back-offs and drift, labelled).
+- Train `--task vel` on Colab with `labels_dir_plans.jsonl` and compare.
+- Asphalt preference (Q15): almost all failures are at the shoulder edge.
 
 ---
 

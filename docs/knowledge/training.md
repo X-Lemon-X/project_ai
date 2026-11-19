@@ -117,6 +117,29 @@ Checks: `tests/test_training_dir.py` (targets, mirror permutation = direction
 geometry), `tests/test_motion.py` (DirectionalMotion). A CPU run of the L / F / R task gives
 exactly the numbers it gave before the change.
 
+### Direction model: closed-loop result (2026-11-19)
+
+`resnet18_dir_plans` (grid + planned samples, no DAgger), MuJoCo, layouts 100000–100099
+(summaries in `docs/results/mujoco_drive_dir_plans/`):
+
+| Model | success | stuck | collision | off-road |
+|---|---|---|---|---|
+| baseline L / F / R, discrete | 83 | 17 | 0 | 0 |
+| baseline L / F / R, filter 0.7 | 80 | 0 | 2 | 18 |
+| **direction model, no filter** | **71** | 17 (13 forward ↔ back, 4 left ↔ right) | 3 | 9 |
+| **direction model, velocity filter 0.7** | **46** | 5 | 3 | 46 |
+| directional expert (upper bound) | 100 | 0 | 0 | 0 |
+
+- **The new output alone is worse** than the L / F / R baseline (no DAgger data in either).
+- **False back-offs:** 10.6 % of the network's moves have a backward part, while the expert
+  itself never backs off on its own runs (0 %). The back-off labels come only from recovery
+  starts close in front of obstacles. The network also backs off at the shoulder edge and past
+  the obstacles, which gives forward ↔ back deadlocks.
+- **Filter + diagonal moves → drift off the road:** many FL / FR moves keep a sideways
+  component, the velocity filter integrates it, and the robot slides across the shoulder.
+- The directional expert drives 100 / 100 with the same actions, so the action set is fine.
+- Next: DAgger on the direction model, the velocity model (`--task vel`), asphalt preference (Q15).
+
 ## Velocity model (`--task vel`, 2026-11-19)
 
 Continuous output instead of direction classes, as proposed at the 2026-11-19 session: the
