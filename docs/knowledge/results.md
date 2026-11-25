@@ -69,6 +69,23 @@ Per-image runs on the Isaac grid with 3 seeds (L / F / R, grid only): ResNet18 0
    the same failure pattern as the first Isaac test. Isaac confirmation of the final numbers is
    still open ([handover](../handover-2026-11-19.md#5-isaac-only-tasks)).
 
+## Planned: dense-obstacle benchmark
+
+A generalisation test, run after the velocity model's DAgger round: the same 100 evaluation
+layouts with **5–10 obstacles** instead of 1–3 (no model has seen more than 3 in training).
+
+```bash
+python drive_mujoco.py --model <model.ts> [--velocity | --directional] --count 100 \
+    --min-obstacles 5 --max-obstacles 10 --out runs/eval_dense/<name>
+```
+
+- All 100 layouts are passable: the sampler places 5–10 obstacles (most often 9), and both
+  experts (4 and 8 directions) reach the goal in 100 / 100.
+- First look (2026-11-25, `resnet18_vel_plans`, layouts 100000–100002): 1 / 3 success. Both
+  failures got stuck 3.5–4.8 m **before** the obstacles, switching between left and right
+  (actions about equally left, right and forward). A wall of obstacles fills the view, and the
+  choice between the left and right gap is less clear than with 1–3 obstacles.
+
 ## Not covered yet
 
 Road-style randomization (the supervisor's request of 2026-10-21), memory, lidar input, Isaac

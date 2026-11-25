@@ -6,6 +6,16 @@ linked pages; this file is the short version.
 
 ---
 
+## 2026-11-25 — Dense-obstacle test idea
+
+- `drive_mujoco.py --min-obstacles 5 --max-obstacles 10` on the velocity model (layouts
+  100000–100002, in the viewer): 1 / 3 success, two runs stuck 3.5–4.8 m before the obstacles,
+  switching left / right. All 100 dense layouts are passable (both experts 100 / 100).
+- Planned as a **dense-obstacle benchmark** for all models after the velocity model's
+  DAgger round. → [results](knowledge/results.md#planned-dense-obstacle-benchmark)
+
+---
+
 ## 2026-11-19 — Session wrap-up: velocity output chosen
 
 **Done**
